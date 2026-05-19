@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DealCheck BC — Architecture & Data Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f8f8; color: #1a1a1a; padding: 40px 24px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  p.sub { font-size: 13px; color: #666; margin-bottom: 32px; }
+  h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #444; margin: 40px 0 14px; }
+  .card { background: #fff; border: 1px solid #e2e2e2; border-radius: 10px; padding: 24px; overflow-x: auto; }
+  .mermaid { min-width: 600px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  .dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<h1>DealCheck BC</h1>
+<p class="sub">Architecture overview &amp; data flow — as of May 2026</p>
+
+<h2>1. Component overview</h2>
+<div class="card">
+<div class="mermaid">
+graph TB
+  subgraph Browser["🖥️  Browser"]
+    UP["Upload page\n/upload"]
+    DP["Deal page\n/deals/[id]"]
+    DB["Dashboard\n/dashboard"]
+  end
+
+  subgraph NextJS["⚡ Next.js 16 (App Router)"]
+    subgraph API["API Routes"]
+      R1["POST /api/upload"]
+      R2["GET /api/deals/[id]"]
+      R3["POST /api/deals/[id]/run\n(sync debug)"]
+    end
+    subgraph Lib["lib/"]
+      PD["process-deal.js\n(pipeline orchestrator)"]
+      TX["textract.js\n(OCR)"]
+      CM["compliance.js\n(Claude calls)"]
+      SB["supabase.js\n(client)"]
+    end
+    CP["compliance-prompt.md\n(editable checklist)"]
+  end
+
+  subgraph Auth["🔐 Clerk"]
+    CL["Auth middleware\n(proxy.js)"]
+  end
+
+  subgraph Supabase["🗄️  Supabase"]
+    DT["deals table"]
+    ST["deal-files\nstorage bucket"]
+  end
+
+  subgraph AWS["☁️  AWS"]
+    TXT["Textract\n(OCR engine)"]
+    S3["S3 bucket\n(temp — multi-page PDFs)"]
+  end
+
+  subgraph Anthropic["🤖 Anthropic API"]
+    HK["Haiku\n(classify + compliance)"]
+  end
+
+  UP -->|POST files| R1
+  DP -->|polls every 3s| R2
+  DB -->|lists deals| R2
+  R1 & R2 & R3 --> CL
+  R1 --> SB
+  R1 -->|after - background| PD
+  R3 -->|synchronous| PD
+  PD --> TX
+  PD --> CM
+  PD --> SB
+  CM --> CP
+  CM --> HK
+  TX -->|single page| TXT
+  TX -->|multi-page PDF| S3
+  S3 -->|async job| TXT
+  SB --> DT
+  SB --> ST
+</div>
+</div>
+
+<h2>2. Upload & processing flow</h2>
+<div class="card">
+<div class="mermaid">
+sequenceDiagram
+  actor User
+  participant Upload as /api/upload
+  participant Clerk
+  participant Supabase
+  participant BG as processDeal()<br/>(background)
+  participant Textract
+  participant Claude as Anthropic Haiku
+
+  User->>Upload: POST files
+  Upload->>Clerk: verify session
+  Clerk-->>Upload: userId, orgId
+
+  Upload->>Supabase: INSERT deal (status: uploaded)
+  Upload->>Supabase: upload file(s) to deal-files bucket
+  Upload-->>User: { dealId } ← returns immediately
+
+  Note over BG: after() fires in background
+  Upload-)BG: processDeal(dealId, orgId)
+
+  BG->>Supabase: UPDATE status → processing
+  BG->>Supabase: list files in storage prefix
+  BG->>Supabase: download each file
+
+  loop Each file
+    BG->>Textract: OCR (sync if 1 page, async via S3 if multi-page)
+    Textract-->>BG: text + form fields + signature count
+    BG->>Claude: classify doc type & extract fields (Haiku)
+    Claude-->>BG: { doc_type, fields }
+  end
+
+  BG->>Claude: compliance check all docs vs compliance-prompt.md (Haiku)
+  Claude-->>BG: { overall_status, checks[], missing_documents[] }
+
+  BG->>Supabase: UPDATE status → completed<br/>+ report + files + customer_name + vehicle_info
+
+  loop Deal page polling (every 3s)
+    User->>+Supabase: GET /api/deals/[id]
+    Supabase-->>-User: deal row
+  end
+
+  Note over User: Stops polling when status = completed or failed
+</div>
+</div>
+
+<h2>3. Data model — deals table</h2>
+<div class="card">
+<div class="mermaid">
+erDiagram
+  DEALS {
+    uuid id PK
+    text org_id "Clerk org or userId"
+    text created_by "Clerk userId (NOT NULL)"
+    text status "uploaded | processing | completed | failed"
+    timestamptz created_at
+    text customer_name "extracted by Claude"
+    text vehicle_info "extracted by Claude"
+    jsonb report "full compliance report JSON"
+    jsonb files "array of processed file metadata"
+    text error "set on failure"
+  }
+</div>
+</div>
+
+<h2>4. Status lifecycle</h2>
+<div class="card">
+<div class="mermaid">
+stateDiagram-v2
+  [*] --> uploaded : POST /api/upload\n(deal row created)
+  uploaded --> processing : processDeal() starts
+  processing --> completed : all steps succeed
+  processing --> failed : any step throws
+  failed --> processing : POST /api/deals/[id]/run\n(manual retry)
+  completed --> [*]
+</div>
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="dot" style="background:#4f46e5"></div>Next.js (your code)</div>
+  <div class="leg"><div class="dot" style="background:#059669"></div>Supabase</div>
+  <div class="leg"><div class="dot" style="background:#d97706"></div>AWS (Textract / S3)</div>
+  <div class="leg"><div class="dot" style="background:#dc2626"></div>Anthropic</div>
+  <div class="leg"><div class="dot" style="background:#7c3aed"></div>Clerk</div>
+</div>
+
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontSize: 13 });</script>
+</body>
+</html>
