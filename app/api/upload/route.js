@@ -1,8 +1,6 @@
-import { after } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { v4 as uuid } from 'uuid';
 import { supabaseAdmin, BUCKET } from '@/lib/supabase';
-import { processDeal } from '@/lib/process-deal';
 
 export const maxDuration = 300;
 
@@ -22,11 +20,12 @@ export async function POST(request) {
 
   const sb = supabaseAdmin();
 
+  // Insert with 'uploading' first so Realtime doesn't fire until files are ready.
   const { error: insertErr } = await sb.from('deals').insert({
     id: dealId,
     org_id: orgId,
     created_by: userId,
-    status: 'uploaded',
+    status: 'uploading',
     created_at: new Date().toISOString(),
   });
   if (insertErr) return Response.json({ error: insertErr.message }, { status: 500 });
@@ -40,7 +39,11 @@ export async function POST(request) {
     if (uploadErr) return Response.json({ error: uploadErr.message }, { status: 500 });
   }
 
-  after(() => processDeal(dealId, orgId));
+  // Now all files are in storage — flip to 'uploaded' to trigger the local daemon.
+  const { error: updateErr } = await sb.from('deals')
+    .update({ status: 'uploaded' })
+    .eq('id', dealId);
+  if (updateErr) return Response.json({ error: updateErr.message }, { status: 500 });
 
   return Response.json({ dealId });
 }
