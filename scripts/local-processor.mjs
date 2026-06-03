@@ -124,6 +124,80 @@ async function logDealCost(dealId, callType, model, usage, fromBatch = false) {
 
 // ---- Pipeline ----
 
+// Download a deal's files, compute its dedup hash, and apply Phase 2
+// preprocessing/quality-gating. Shared by the sync and batch paths.
+// Returns { downloaded, dealSetHash, filesForApi, illegible }.
+async function prepareDealFiles(dealId, orgId) {
+  const prefix = `${orgId}/${dealId}`;
+  const { data: storageList, error: listErr } = await sb.storage.from(BUCKET).list(prefix);
+  if (listErr) throw new Error(listErr.message);
+  if (!storageList?.length) throw new Error('no files found in storage');
+
+  const downloaded = await Promise.all(
+    storageList.map(async entry => {
+      const storagePath = `${prefix}/${entry.name}`;
+      const originalName = entry.name.replace(/^[0-9a-f-]{36}-/, '');
+      const { data: blob, error: dlErr } = await sb.storage.from(BUCKET).download(storagePath);
+      if (dlErr) throw new Error(`download failed for ${originalName}: ${dlErr.message}`);
+      const bytes = Buffer.from(await blob.arrayBuffer());
+      return { originalName, storagePath, bytes };
+    })
+  );
+
+  const dealSetHash = computeDealSetHash(downloaded.map(f => f.bytes));
+
+  let filesForApi = downloaded.map(f => ({ bytes: f.bytes, filename: f.originalName }));
+  let illegible = [];
+  if (PREPROCESS || GATE_THRESHOLD > 0) {
+    illegible = [];
+    filesForApi = await Promise.all(downloaded.map(async f => {
+      const mime = mimeFromFilename(f.originalName);
+      if (!isPreprocessableImage(mime)) return { bytes: f.bytes, filename: f.originalName };
+      if (GATE_THRESHOLD > 0) {
+        const score = await sharpnessScore(f.bytes);
+        console.log(`  legibility ${f.originalName}: ${score.toFixed(0)} (threshold ${GATE_THRESHOLD})`);
+        if (score < GATE_THRESHOLD) illegible.push(f.originalName);
+      }
+      const bytes = PREPROCESS ? await cleanScan(f.bytes) : f.bytes;
+      return { bytes, filename: f.originalName };
+    }));
+  }
+
+  return { downloaded, dealSetHash, filesForApi, illegible };
+}
+
+// Map classification extractions to the stored per-file shape.
+function buildPerFile(downloaded, extractions) {
+  const storageByName = Object.fromEntries(downloaded.map(f => [f.originalName, f]));
+  return extractions.map(ext => {
+    const src = storageByName[ext.source_file] || downloaded[0];
+    return {
+      filename: ext.filename,
+      source_file: ext.source_file,
+      storage_path: src?.storagePath || null,
+      mime_type: mimeFromFilename(src?.originalName || ''),
+      doc_type: ext.doc_type || null,
+      signed_by_customer: ext.signed_by_customer ?? false,
+      signed_by_dealer: ext.signed_by_dealer ?? false,
+      fields: ext.fields || null,
+    };
+  });
+}
+
+// Persist a finished deal: cache the result and mark it completed.
+async function writeCompletedDeal(dealId, report, perFile, dealSetHash) {
+  await saveClassificationCache(dealSetHash, perFile, report);
+  await sb.from('deals').update({
+    status: 'completed',
+    report,
+    files: perFile,
+    customer_name: report.customer_name || null,
+    vehicle_info: report.vehicle_info || null,
+    batch_id: null,
+    batch_stage: null,
+  }).eq('id', dealId);
+}
+
 async function processDeal(dealId, orgId) {
   if (inFlight.has(dealId)) return;
   inFlight.add(dealId);
@@ -134,107 +208,40 @@ async function processDeal(dealId, orgId) {
   try {
     await sb.from('deals').update({ status: 'processing' }).eq('id', dealId);
 
-    const prefix = `${orgId}/${dealId}`;
-    const { data: storageList, error: listErr } = await sb.storage.from(BUCKET).list(prefix);
-    if (listErr) throw new Error(listErr.message);
-    if (!storageList?.length) throw new Error('no files found in storage');
+    const { downloaded, dealSetHash, filesForApi, illegible } = await prepareDealFiles(dealId, orgId);
 
-    const downloaded = await Promise.all(
-      storageList.map(async entry => {
-        const storagePath = `${prefix}/${entry.name}`;
-        const originalName = entry.name.replace(/^[0-9a-f-]{36}-/, '');
-        const { data: blob, error: dlErr } = await sb.storage.from(BUCKET).download(storagePath);
-        if (dlErr) throw new Error(`download failed for ${originalName}: ${dlErr.message}`);
-        const bytes = Buffer.from(await blob.arrayBuffer());
-        return { originalName, storagePath, bytes };
-      })
-    );
-
-    // Phase 1.2: if we've already processed this exact set of files with the
-    // current model, reuse the stored results and skip both Opus calls.
-    const dealSetHash = computeDealSetHash(downloaded.map(f => f.bytes));
+    // Phase 1.2: reuse a prior identical result.
     const cached = await lookupClassificationCache(dealSetHash);
     if (cached && cached.model_used === MODEL) {
       const cachedReport = { ...cached.compliance_result, from_cache: true };
-      await sb.from('deals').update({
-        status: 'completed',
-        report: cachedReport,
-        files: cached.classification_result,
-        customer_name: cachedReport.customer_name || null,
-        vehicle_info: cachedReport.vehicle_info || null,
-      }).eq('id', dealId);
+      await writeCompletedDeal(dealId, cachedReport, cached.classification_result, dealSetHash);
       console.log(`[${ts()}] deal ${dealId} — DONE from cache (${cachedReport.overall_status})`);
       return;
     }
 
-    // Phase 2: quality gate + preprocessing (images only; PDFs pass through).
-    let filesForApi = downloaded.map(f => ({ bytes: f.bytes, filename: f.originalName }));
-    if (PREPROCESS || GATE_THRESHOLD > 0) {
-      const illegible = [];
-      filesForApi = await Promise.all(downloaded.map(async f => {
-        const mime = mimeFromFilename(f.originalName);
-        if (!isPreprocessableImage(mime)) return { bytes: f.bytes, filename: f.originalName };
-
-        if (GATE_THRESHOLD > 0) {
-          const score = await sharpnessScore(f.bytes);
-          console.log(`  legibility ${f.originalName}: ${score.toFixed(0)} (threshold ${GATE_THRESHOLD})`);
-          if (score < GATE_THRESHOLD) illegible.push(f.originalName);
-        }
-
-        const bytes = PREPROCESS ? await cleanScan(f.bytes) : f.bytes;
-        return { bytes, filename: f.originalName };
-      }));
-
-      if (illegible.length) {
-        await sb.from('deals').update({
-          status: 'needs_reupload',
-          error: `Illegible scan(s): ${illegible.join(', ')}. Please re-upload clearer copies.`,
-        }).eq('id', dealId);
-        console.log(`[${ts()}] deal ${dealId} — NEEDS REUPLOAD: ${illegible.join(', ')}`);
-        return;
-      }
+    // Phase 2: reject illegible scans before spending tokens.
+    if (illegible.length) {
+      await sb.from('deals').update({
+        status: 'needs_reupload',
+        error: `Illegible scan(s): ${illegible.join(', ')}. Please re-upload clearer copies.`,
+      }).eq('id', dealId);
+      console.log(`[${ts()}] deal ${dealId} — NEEDS REUPLOAD: ${illegible.join(', ')}`);
+      return;
     }
 
     console.log(`  downloaded ${downloaded.length} file(s) — classifying...`);
     let classifyUsage = null;
-    const extractions = await classifyAllDocuments(filesForApi, {
-      onUsage: u => { classifyUsage = u; },
-    });
+    const extractions = await classifyAllDocuments(filesForApi, { onUsage: u => { classifyUsage = u; } });
     await logDealCost(dealId, 'classification', MODEL, classifyUsage);
     console.log(`  classified ${extractions.length} document(s) — running compliance check...`);
 
-    const storageByName = Object.fromEntries(downloaded.map(f => [f.originalName, f]));
-    const perFile = extractions.map(ext => {
-      const src = storageByName[ext.source_file] || downloaded[0];
-      return {
-        filename: ext.filename,
-        source_file: ext.source_file,
-        storage_path: src?.storagePath || null,
-        mime_type: mimeFromFilename(src?.originalName || ''),
-        doc_type: ext.doc_type || null,
-        signed_by_customer: ext.signed_by_customer ?? false,
-        signed_by_dealer: ext.signed_by_dealer ?? false,
-        fields: ext.fields || null,
-      };
-    });
+    const perFile = buildPerFile(downloaded, extractions);
 
     let complianceUsage = null;
-    const report = await runComplianceCheck(perFile, {
-      onUsage: u => { complianceUsage = u; },
-    });
+    const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; } });
     await logDealCost(dealId, 'compliance', MODEL, complianceUsage);
 
-    // Persist results so a future byte-identical re-upload hits the cache.
-    await saveClassificationCache(dealSetHash, perFile, report);
-
-    await sb.from('deals').update({
-      status: 'completed',
-      report,
-      files: perFile,
-      customer_name: report.customer_name || null,
-      vehicle_info: report.vehicle_info || null,
-    }).eq('id', dealId);
-
+    await writeCompletedDeal(dealId, report, perFile, dealSetHash);
     console.log(`[${ts()}] deal ${dealId} — DONE (${report.overall_status})`);
   } catch (err) {
     await sb.from('deals').update({ status: 'failed', error: String(err?.message || err) }).eq('id', dealId);
