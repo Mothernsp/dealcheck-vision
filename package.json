@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "processor": "node scripts/local-processor.mjs",
-    "processor:once": "node scripts/local-processor.mjs --once"
+    "processor:once": "node scripts/local-processor.mjs --once",
+    "eval": "node scripts/eval-models.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

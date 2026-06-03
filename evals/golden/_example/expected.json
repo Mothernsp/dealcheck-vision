@@ -1,0 +1,19 @@
+[
+  {
+    "doc_type": "bill_of_sale",
+    "fields": {
+      "vin": "2HKRW2H59MH123456",
+      "sale_price": 35990.00,
+      "down_payment": 5000.00,
+      "amount_financed": 32500.50,
+      "gst_amount": 1799.50,
+      "pst_amount": 2519.30
+    }
+  },
+  {
+    "doc_type": "carfax_report",
+    "fields": {
+      "vin": "2HKRW2H59MH123456"
+    }
+  }
+]
