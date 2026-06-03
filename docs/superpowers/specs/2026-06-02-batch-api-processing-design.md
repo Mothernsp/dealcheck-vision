@@ -108,12 +108,19 @@ This keeps caching, the system prompt + examples, and schema in exactly one plac
 
 ### Latency cap & fallback
 
-A stage's poll loop runs until `processing_status === 'ended'` OR
-`elapsed > BATCH_MAX_WAIT_MIN`. On timeout:
+The cap is **per stage**. Each stage's poll loop runs until
+`processing_status === 'ended'` OR `elapsed > BATCH_MAX_WAIT_MIN`. On timeout:
 - `messages.batches.cancel(batch_id)`.
 - Any deals already returned `succeeded` are used.
 - Remaining deals are processed through the **synchronous** functions
   immediately, guaranteeing completion in minutes.
+
+**Worst-case latency for a single deal** is therefore ~2× the per-stage cap
+(~20 min at the default 10), in the rare case its classification batch ends late
+*and* its compliance batch also stalls. A timeout at the **classification**
+stage routes that deal to the fully-synchronous path (both calls), capping it at
+~11 min. Typical case is ~1–5 min total; the cap rarely triggers. This satisfies
+the "minutes, not hours" requirement.
 
 Already-completed batch requests are still billed (at the 50% rate); rarely we
 pay for a fallback sync call on top. Accepted as a rare edge cost.
