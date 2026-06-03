@@ -45,9 +45,14 @@ const OVERALL_BADGE = {
   fail: 'bg-rose-100 text-rose-700',
 };
 
+const STAGE_TEXT = {
+  classifying: 'Analyzing documents…',
+  checking: 'Running compliance checks — report ready in a few minutes.',
+};
+
 export default function DealView({ initialDeal }) {
   const [deal, setDeal] = useState(initialDeal);
-  const inProgress = deal.status === 'uploaded' || deal.status === 'processing';
+  const inProgress = ['uploaded', 'processing', 'classifying', 'checking'].includes(deal.status);
 
   useEffect(() => {
     if (!inProgress) return;
@@ -126,7 +131,7 @@ export default function DealView({ initialDeal }) {
             </div>
             <p className="text-sm text-blue-800">
               <span className="font-medium">Running compliance audit</span>
-              <span className="text-blue-600"> — OCR, classification, and checks. Usually 30–90 seconds.</span>
+              <span className="text-blue-600"> — {STAGE_TEXT[deal.status] || 'OCR, classification, and checks. Usually 30–90 seconds.'}</span>
             </p>
           </div>
         )}
