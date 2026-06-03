@@ -20,7 +20,8 @@ import dotenv from 'dotenv';
 import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { classifyAllDocuments } from '../lib/vision.mjs';
+import { classifyAllDocuments, mimeFromFilename } from '../lib/vision.mjs';
+import { cleanScan, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -33,6 +34,9 @@ const RESULTS_DIR = join(ROOT, 'evals', 'results');
 const argModels = (process.argv.find(a => a.startsWith('--models=')) || '').split('=')[1];
 const MODELS = argModels ? argModels.split(',').map(s => s.trim()).filter(Boolean)
                          : ['claude-opus-4-7', 'claude-sonnet-4-6'];
+// --preprocess: run image inputs through Phase 2 cleanScan first, to A/B test
+// preprocessing's effect on accuracy against an un-preprocessed run.
+const PREPROCESS = process.argv.includes('--preprocess');
 // The production baseline everything is compared against (first model by default).
 const BASELINE = MODELS[0];
 
@@ -172,7 +176,15 @@ async function evalModel(model, deals) {
     const t0 = Date.now();
     let usage = null;
     try {
-      const docs = await classifyAllDocuments(deal.files, { model, onUsage: u => { usage = u; } });
+      let inputFiles = deal.files;
+      if (PREPROCESS) {
+        inputFiles = await Promise.all(deal.files.map(async f =>
+          isPreprocessableImage(mimeFromFilename(f.filename))
+            ? { ...f, bytes: await cleanScan(f.bytes) }
+            : f
+        ));
+      }
+      const docs = await classifyAllDocuments(inputFiles, { model, onUsage: u => { usage = u; } });
       acc.latencyMs += Date.now() - t0;
       acc.costUsd += costUsd(model, usage);
       scoreDeal(deal.expected, docs, acc);
@@ -191,7 +203,7 @@ function buildReport(results, deals) {
   const lines = [];
   lines.push(`# Model eval — ${new Date().toISOString()}`);
   lines.push('');
-  lines.push(`Golden set: **${deals.length}** deals. Baseline: \`${BASELINE}\`.`);
+  lines.push(`Golden set: **${deals.length}** deals. Baseline: \`${BASELINE}\`. Preprocessing: **${PREPROCESS ? 'on' : 'off'}**.`);
   lines.push('');
   lines.push('| Model | Deals | Docs (pred/exp) | DocType Acc | VIN Acc | $ Acc | Total Cost | Avg $/Deal | Avg Latency |');
   lines.push('|---|---|---|---|---|---|---|---|---|');
@@ -260,7 +272,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Evaluating ${deals.length} deal(s) across: ${MODELS.join(', ')}\n`);
+  console.log(`Evaluating ${deals.length} deal(s) across: ${MODELS.join(', ')}${PREPROCESS ? ' (preprocessing ON)' : ''}\n`);
   const results = [];
   for (const model of MODELS) {
     if (!PRICING[model]) {

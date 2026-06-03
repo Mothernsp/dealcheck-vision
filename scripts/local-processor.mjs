@@ -17,6 +17,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { classifyAllDocuments, runComplianceCheck, mimeFromFilename, MODEL } from '../lib/vision.mjs';
+import { cleanScan, sharpnessScore, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -25,6 +26,15 @@ dotenv.config({ path: join(ROOT, '.env.local') });
 
 const ONCE = process.argv.includes('--once');
 const BUCKET = 'deal-files';
+
+// Phase 2 — both OFF by default (opt-in via env) so production behavior is
+// unchanged until validated with the eval harness (npm run eval -- --preprocess).
+//   PREPROCESS_IMAGES=true     grayscale/normalize/denoise image uploads pre-API
+//   LEGIBILITY_THRESHOLD=100   reject deals whose any image page scores below it
+//                              (<=0 or unset = gate disabled). Applies to images
+//                              only; PDFs are sent natively and bypass both.
+const PREPROCESS = process.env.PREPROCESS_IMAGES === 'true';
+const GATE_THRESHOLD = Number(process.env.LEGIBILITY_THRESHOLD || 0);
 
 // ---- Clients ----
 
@@ -132,10 +142,36 @@ async function processDeal(dealId, orgId) {
       return;
     }
 
+    // Phase 2: quality gate + preprocessing (images only; PDFs pass through).
+    let filesForApi = downloaded.map(f => ({ bytes: f.bytes, filename: f.originalName }));
+    if (PREPROCESS || GATE_THRESHOLD > 0) {
+      const illegible = [];
+      filesForApi = await Promise.all(downloaded.map(async f => {
+        const mime = mimeFromFilename(f.originalName);
+        if (!isPreprocessableImage(mime)) return { bytes: f.bytes, filename: f.originalName };
+
+        if (GATE_THRESHOLD > 0) {
+          const score = await sharpnessScore(f.bytes);
+          console.log(`  legibility ${f.originalName}: ${score.toFixed(0)} (threshold ${GATE_THRESHOLD})`);
+          if (score < GATE_THRESHOLD) illegible.push(f.originalName);
+        }
+
+        const bytes = PREPROCESS ? await cleanScan(f.bytes) : f.bytes;
+        return { bytes, filename: f.originalName };
+      }));
+
+      if (illegible.length) {
+        await sb.from('deals').update({
+          status: 'needs_reupload',
+          error: `Illegible scan(s): ${illegible.join(', ')}. Please re-upload clearer copies.`,
+        }).eq('id', dealId);
+        console.log(`[${ts()}] deal ${dealId} — NEEDS REUPLOAD: ${illegible.join(', ')}`);
+        return;
+      }
+    }
+
     console.log(`  downloaded ${downloaded.length} file(s) — classifying...`);
-    const extractions = await classifyAllDocuments(
-      downloaded.map(f => ({ bytes: f.bytes, filename: f.originalName }))
-    );
+    const extractions = await classifyAllDocuments(filesForApi);
     console.log(`  classified ${extractions.length} document(s) — running compliance check...`);
 
     const storageByName = Object.fromEntries(downloaded.map(f => [f.originalName, f]));

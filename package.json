@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --test \"lib/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "processor": "node scripts/local-processor.mjs",
     "processor:once": "node scripts/local-processor.mjs --once",
     "eval": "node scripts/eval-models.mjs"
@@ -19,6 +20,7 @@
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "sharp": "^0.34.5",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
