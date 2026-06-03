@@ -16,7 +16,13 @@ import { createHash } from 'crypto';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { classifyAllDocuments, runComplianceCheck, mimeFromFilename, MODEL } from '../lib/vision.mjs';
+import Anthropic from '@anthropic-ai/sdk';
+import {
+  classifyAllDocuments, runComplianceCheck, mimeFromFilename, MODEL,
+  buildClassifyParams, buildComplianceParams, normalizeClassification,
+  parseJsonArray, parseJsonObject, messageText,
+} from '../lib/vision.mjs';
+import { submitBatch, pollBatchUntilDone, collectResults } from '../lib/batch.mjs';
 import { cleanScan, sharpnessScore, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
 import { estimateCostUsd } from '../lib/pricing.mjs';
 
@@ -37,6 +43,11 @@ const BUCKET = 'deal-files';
 const PREPROCESS = process.env.PREPROCESS_IMAGES === 'true';
 const GATE_THRESHOLD = Number(process.env.LEGIBILITY_THRESHOLD || 0);
 
+// Phase 3.1 — Batch API. OFF by default; lone deals always stay synchronous.
+const BATCH_ENABLED = process.env.BATCH_ENABLED === 'true';
+const BATCH_MIN_DEALS = Number(process.env.BATCH_MIN_DEALS || 2);
+const BATCH_MAX_WAIT_MIN = Number(process.env.BATCH_MAX_WAIT_MIN || 10);
+
 // ---- Clients ----
 
 const supabaseUrl = `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supabase.co`;
@@ -44,6 +55,8 @@ const supabaseUrl = `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supa
 const sb = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+
+const anthropic = new Anthropic();
 
 // Prevent double-processing the same deal if a Realtime event and a
 // polling cycle overlap within the same process instance.
@@ -102,7 +115,7 @@ async function saveClassificationCache(dealSetHash, classificationResult, compli
 // deal_costs table degrades to "no cost tracking" rather than breaking the deal.
 async function logDealCost(dealId, callType, model, usage, fromBatch = false) {
   if (!usage) return;
-  const cost = estimateCostUsd(model, usage);
+  const cost = estimateCostUsd(model, usage, { batch: fromBatch });
   console.log(`  cost ${callType}: $${cost.toFixed(4)} (${model})`);
   try {
     const { error } = await sb.from('deal_costs').insert({
@@ -251,6 +264,124 @@ async function processDeal(dealId, orgId) {
   }
 }
 
+// Phase 3.1: process a burst of pending deals via the Message Batches API.
+// Two sequential stages (classify → compliance), each capped at BATCH_MAX_WAIT_MIN;
+// on timeout or batch error, stragglers fall back to synchronous calls.
+async function runBatchPipeline(pending) {
+  const ts = () => new Date().toISOString();
+  const maxWaitMs = BATCH_MAX_WAIT_MIN * 60_000;
+  console.log(`\n[${ts()}] batch pipeline — ${pending.length} deal(s)`);
+
+  // --- Stage 0: prepare; resolve cache hits + gate failures immediately ---
+  const prepared = [];
+  for (const d of pending) {
+    if (inFlight.has(d.id)) continue;
+    inFlight.add(d.id);
+    try {
+      await sb.from('deals').update({ status: 'classifying', batch_stage: 'classifying' }).eq('id', d.id);
+      const prep = await prepareDealFiles(d.id, d.org_id);
+
+      const cached = await lookupClassificationCache(prep.dealSetHash);
+      if (cached && cached.model_used === MODEL) {
+        const report = { ...cached.compliance_result, from_cache: true };
+        await writeCompletedDeal(d.id, report, cached.classification_result, prep.dealSetHash);
+        console.log(`  deal ${d.id} — from cache`);
+        inFlight.delete(d.id);
+        continue;
+      }
+      if (prep.illegible.length) {
+        await sb.from('deals').update({
+          status: 'needs_reupload',
+          error: `Illegible scan(s): ${prep.illegible.join(', ')}. Please re-upload clearer copies.`,
+          batch_stage: null,
+        }).eq('id', d.id);
+        inFlight.delete(d.id);
+        continue;
+      }
+      prepared.push({ dealId: d.id, ...prep });
+    } catch (err) {
+      await sb.from('deals').update({ status: 'failed', error: String(err?.message || err), batch_stage: null }).eq('id', d.id);
+      inFlight.delete(d.id);
+    }
+  }
+  if (!prepared.length) return;
+
+  // --- Stage 1: classification batch ---
+  let classifyResults = {};
+  try {
+    const requests = prepared.map(p => ({ custom_id: p.dealId, params: buildClassifyParams(p.filesForApi, { model: MODEL }) }));
+    const batchId = await submitBatch(anthropic, requests);
+    await Promise.all(prepared.map(p => sb.from('deals').update({ batch_id: batchId }).eq('id', p.dealId)));
+    const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
+    if (poll.status === 'timeout') {
+      console.warn(`  classify batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling, will fall back`);
+      await anthropic.messages.batches.cancel(batchId);
+    }
+    classifyResults = await collectResults(anthropic, batchId);
+  } catch (err) {
+    console.warn('  classify batch error — all deals fall back to sync:', err.message);
+  }
+
+  const classified = [];
+  for (const p of prepared) {
+    try {
+      const r = classifyResults[p.dealId];
+      let extractions;
+      if (r && r.type === 'succeeded') {
+        await logDealCost(p.dealId, 'classification', MODEL, r.message.usage, true);
+        extractions = normalizeClassification(parseJsonArray(messageText(r.message.content)), p.filesForApi);
+      } else {
+        let usage = null;
+        extractions = await classifyAllDocuments(p.filesForApi, { onUsage: u => { usage = u; } });
+        await logDealCost(p.dealId, 'classification', MODEL, usage, false);
+      }
+      await sb.from('deals').update({ status: 'checking', batch_stage: 'checking' }).eq('id', p.dealId);
+      classified.push({ ...p, perFile: buildPerFile(p.downloaded, extractions) });
+    } catch (err) {
+      await sb.from('deals').update({ status: 'failed', error: String(err?.message || err), batch_id: null, batch_stage: null }).eq('id', p.dealId);
+      inFlight.delete(p.dealId);
+    }
+  }
+  if (!classified.length) return;
+
+  // --- Stage 2: compliance batch ---
+  let complianceResults = {};
+  try {
+    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: MODEL }) }));
+    const batchId = await submitBatch(anthropic, requests);
+    await Promise.all(classified.map(c => sb.from('deals').update({ batch_id: batchId }).eq('id', c.dealId)));
+    const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
+    if (poll.status === 'timeout') {
+      console.warn(`  compliance batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling, will fall back`);
+      await anthropic.messages.batches.cancel(batchId);
+    }
+    complianceResults = await collectResults(anthropic, batchId);
+  } catch (err) {
+    console.warn('  compliance batch error — all deals fall back to sync:', err.message);
+  }
+
+  for (const c of classified) {
+    try {
+      const r = complianceResults[c.dealId];
+      let report;
+      if (r && r.type === 'succeeded') {
+        await logDealCost(c.dealId, 'compliance', MODEL, r.message.usage, true);
+        report = parseJsonObject(messageText(r.message.content));
+      } else {
+        let usage = null;
+        report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; } });
+        await logDealCost(c.dealId, 'compliance', MODEL, usage, false);
+      }
+      await writeCompletedDeal(c.dealId, report, c.perFile, c.dealSetHash);
+      console.log(`[${ts()}] deal ${c.dealId} — DONE (${report.overall_status})`);
+    } catch (err) {
+      await sb.from('deals').update({ status: 'failed', error: String(err?.message || err), batch_id: null, batch_stage: null }).eq('id', c.dealId);
+    } finally {
+      inFlight.delete(c.dealId);
+    }
+  }
+}
+
 // ---- Catch-up: process any deals stuck in 'uploaded' ----
 
 async function processPending() {
@@ -258,19 +389,23 @@ async function processPending() {
   if (error) { console.error('Error querying pending deals:', error.message); return; }
   if (!data?.length) return;
   console.log(`\nCatch-up: ${data.length} pending deal(s) found`);
-  // Process sequentially to avoid hammering the Anthropic API on restart.
-  for (const d of data) {
-    await processDeal(d.id, d.org_id);
+  if (BATCH_ENABLED && data.length >= BATCH_MIN_DEALS) {
+    await runBatchPipeline(data);
+  } else {
+    // Process sequentially to avoid hammering the Anthropic API on restart.
+    for (const d of data) {
+      await processDeal(d.id, d.org_id);
+    }
   }
 }
 
-// On startup, reset any deals stuck in 'processing' from a previous crashed run,
-// then processPending() will pick them up as 'uploaded'.
+// On startup, reset any deal left mid-flight by a crashed run (sync 'processing'
+// or batch 'classifying'/'checking') back to 'uploaded' so it is reprocessed.
 async function recoverStuckDeals() {
   const { error } = await sb.from('deals')
-    .update({ status: 'uploaded' })
-    .eq('status', 'processing');
-  if (error) console.warn('Could not reset stuck processing deals:', error.message);
+    .update({ status: 'uploaded', batch_id: null, batch_stage: null })
+    .in('status', ['processing', 'classifying', 'checking']);
+  if (error) console.warn('Could not reset stuck deals:', error.message);
 }
 
 // ---- Entry point ----
