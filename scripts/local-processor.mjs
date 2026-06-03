@@ -314,8 +314,12 @@ async function runBatchPipeline(pending) {
     await Promise.all(prepared.map(p => sb.from('deals').update({ batch_id: batchId }).eq('id', p.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
     if (poll.status === 'timeout') {
-      console.warn(`  classify batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling, will fall back`);
+      console.warn(`  classify batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling; harvesting completed results`);
       await anthropic.messages.batches.cancel(batchId);
+      // Results are only available once the batch ends (canceling → ended).
+      // Wait briefly so deals that already finished are harvested instead of
+      // being re-billed via the sync fallback.
+      await pollBatchUntilDone(anthropic, batchId, { maxWaitMs: 60_000 });
     }
     classifyResults = await collectResults(anthropic, batchId);
   } catch (err) {
@@ -352,8 +356,12 @@ async function runBatchPipeline(pending) {
     await Promise.all(classified.map(c => sb.from('deals').update({ batch_id: batchId }).eq('id', c.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
     if (poll.status === 'timeout') {
-      console.warn(`  compliance batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling, will fall back`);
+      console.warn(`  compliance batch timed out after ${BATCH_MAX_WAIT_MIN}m — cancelling; harvesting completed results`);
       await anthropic.messages.batches.cancel(batchId);
+      // Results are only available once the batch ends (canceling → ended).
+      // Wait briefly so deals that already finished are harvested instead of
+      // being re-billed via the sync fallback.
+      await pollBatchUntilDone(anthropic, batchId, { maxWaitMs: 60_000 });
     }
     complianceResults = await collectResults(anthropic, batchId);
   } catch (err) {
