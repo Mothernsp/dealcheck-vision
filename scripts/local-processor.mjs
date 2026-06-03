@@ -18,6 +18,7 @@ import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { classifyAllDocuments, runComplianceCheck, mimeFromFilename, MODEL } from '../lib/vision.mjs';
 import { cleanScan, sharpnessScore, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
+import { estimateCostUsd } from '../lib/pricing.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -97,6 +98,30 @@ async function saveClassificationCache(dealSetHash, classificationResult, compli
   }
 }
 
+// Phase 4.1: record one row per Anthropic call. Swallows errors so a missing
+// deal_costs table degrades to "no cost tracking" rather than breaking the deal.
+async function logDealCost(dealId, callType, model, usage, fromBatch = false) {
+  if (!usage) return;
+  const cost = estimateCostUsd(model, usage);
+  console.log(`  cost ${callType}: $${cost.toFixed(4)} (${model})`);
+  try {
+    const { error } = await sb.from('deal_costs').insert({
+      deal_id: dealId,
+      call_type: callType,
+      model,
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
+      cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+      estimated_cost_usd: cost,
+      from_batch: fromBatch,
+    });
+    if (error) console.warn('  cost log failed:', error.message);
+  } catch (err) {
+    console.warn('  cost log error:', err.message);
+  }
+}
+
 // ---- Pipeline ----
 
 async function processDeal(dealId, orgId) {
@@ -171,7 +196,11 @@ async function processDeal(dealId, orgId) {
     }
 
     console.log(`  downloaded ${downloaded.length} file(s) — classifying...`);
-    const extractions = await classifyAllDocuments(filesForApi);
+    let classifyUsage = null;
+    const extractions = await classifyAllDocuments(filesForApi, {
+      onUsage: u => { classifyUsage = u; },
+    });
+    await logDealCost(dealId, 'classification', MODEL, classifyUsage);
     console.log(`  classified ${extractions.length} document(s) — running compliance check...`);
 
     const storageByName = Object.fromEntries(downloaded.map(f => [f.originalName, f]));
@@ -189,7 +218,11 @@ async function processDeal(dealId, orgId) {
       };
     });
 
-    const report = await runComplianceCheck(perFile);
+    let complianceUsage = null;
+    const report = await runComplianceCheck(perFile, {
+      onUsage: u => { complianceUsage = u; },
+    });
+    await logDealCost(dealId, 'compliance', MODEL, complianceUsage);
 
     // Persist results so a future byte-identical re-upload hits the cache.
     await saveClassificationCache(dealSetHash, perFile, report);

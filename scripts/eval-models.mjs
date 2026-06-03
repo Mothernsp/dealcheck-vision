@@ -22,6 +22,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { classifyAllDocuments, mimeFromFilename } from '../lib/vision.mjs';
 import { cleanScan, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
+import { PRICING, estimateCostUsd } from '../lib/pricing.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -39,16 +40,6 @@ const MODELS = argModels ? argModels.split(',').map(s => s.trim()).filter(Boolea
 const PREPROCESS = process.argv.includes('--preprocess');
 // The production baseline everything is compared against (first model by default).
 const BASELINE = MODELS[0];
-
-// USD per million tokens. VERIFY against https://www.anthropic.com/pricing —
-// these are estimates and the cost column is only as accurate as this table.
-const PRICING = {
-  'claude-opus-4-7':   { input: 15, output: 75 },
-  'claude-opus-4-8':   { input: 15, output: 75 },
-  'claude-sonnet-4-6': { input: 3,  output: 15 },
-};
-const CACHE_READ_MULT = 0.1;   // cached-input read is ~10% of input price
-const CACHE_WRITE_MULT = 1.25; // 5-min ephemeral cache write is ~125% of input price
 
 // Money fields we score for "dollar read accuracy".
 const DOLLAR_FIELDS = [
@@ -71,21 +62,6 @@ function vinEq(a, b) {
 function moneyEq(a, b) {
   if (a == null || b == null) return false;
   return Math.abs(Number(a) - Number(b)) < 0.01;
-}
-
-function costUsd(model, usage) {
-  const p = PRICING[model];
-  if (!p || !usage) return 0;
-  const fresh = usage.input_tokens ?? 0;
-  const cacheRead = usage.cache_read_input_tokens ?? 0;
-  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
-  const out = usage.output_tokens ?? 0;
-  return (
-    fresh * p.input +
-    cacheRead * p.input * CACHE_READ_MULT +
-    cacheWrite * p.input * CACHE_WRITE_MULT +
-    out * p.output
-  ) / 1_000_000;
 }
 
 function loadGoldenDeals() {
@@ -186,7 +162,7 @@ async function evalModel(model, deals) {
       }
       const docs = await classifyAllDocuments(inputFiles, { model, onUsage: u => { usage = u; } });
       acc.latencyMs += Date.now() - t0;
-      acc.costUsd += costUsd(model, usage);
+      acc.costUsd += estimateCostUsd(model, usage);
       scoreDeal(deal.expected, docs, acc);
       acc.dealsRun += 1;
       console.log(`ok (${docs.length} docs, ${((Date.now() - t0) / 1000).toFixed(1)}s)`);
@@ -253,7 +229,7 @@ function buildReport(results, deals) {
     }
     lines.push('');
   }
-  lines.push('> Cost uses the estimated PRICING table in scripts/eval-models.mjs — verify against current Anthropic pricing.');
+  lines.push('> Cost uses the estimated PRICING table in lib/pricing.mjs — verify against current Anthropic pricing.');
   lines.push('');
   return lines.join('\n');
 }
