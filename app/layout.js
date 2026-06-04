@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "DealCheck BC",
-  description: "F&I compliance checker for BC auto dealers",
+  title: "DealCheck Vision · F&I compliance for BC dealers",
+  description: "Upload a deal jacket and get an itemised pass, warn and fail compliance report against BC Motor Dealer Act requirements.",
 };
 
 export default function RootLayout({ children }) {
@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       >
-        <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
+        <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
           {children}
         </body>
       </html>

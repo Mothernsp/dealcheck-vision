@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
+/* Compliance-dossier theme. Light-only by design: this is a document review
+   tool, so the page is locked to one theme (no section-level inversion). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc; /* slate-50, cool "paper" */
+  --foreground: #0f172a; /* slate-900 ink */
 }
 
 @theme inline {
@@ -12,15 +14,31 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Tabular numerics for the dossier: VINs, amounts and IDs line up in columns. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* MOTION_INTENSITY 3: a single restrained entrance, used to bring report
+   sections in on load. Collapses to instant under reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .animate-rise {
+    animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
 }
