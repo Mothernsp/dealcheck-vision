@@ -2,7 +2,7 @@
 
 AI-powered **F&I (Finance & Insurance) compliance checker for BC auto dealerships**. A dealer uploads a "deal jacket" (the bundle of scanned documents for a vehicle sale), and the system uses Claude Vision to classify every document, extract key fields, and run a compliance checklist, then presents a pass/warn/fail report.
 
-> **Inputs are always scanned paper** (PDFs or images), never text-layer PDFs. Vision runs on **Claude Opus** (Haiku was tested and misreads degraded scans).
+> **Inputs are always scanned paper** (PDFs or images), never text-layer PDFs. The pipeline uses **two models**: **Sonnet** does the Vision classification/extraction (`CLASSIFY_MODEL`), **Opus** does the text-only compliance judgment (`COMPLIANCE_MODEL`). Haiku was tested for Vision and misreads degraded scans, so it is not used. ⚠️ Sonnet's extraction accuracy on real scans is **not yet eval-validated** — watch VIN/dollar misreads; a wrong extraction silently produces a wrong compliance verdict (the Opus compliance call never sees the scan).
 
 ---
 
@@ -13,7 +13,7 @@ AI-powered **F&I (Finance & Insurance) compliance checker for BC auto dealership
 | Web app / API | **Next.js 16** (App Router, Turbopack) on **Vercel** |
 | Auth | **Clerk** (org-scoped) |
 | Database + file storage + realtime | **Supabase** (Postgres, Storage bucket `deal-files`, Realtime) |
-| AI | **Anthropic Claude** — `claude-opus-4-7` (Vision classification + JSON compliance) |
+| AI | **Anthropic Claude** — `claude-sonnet-4-6` Vision classification + `claude-opus-4-7` JSON compliance |
 | Background processing | **Local Node daemon** (`scripts/local-processor.mjs`) |
 | Runtime | **Node 22** (pinned via `.nvmrc` + `engines`; Node 24 breaks `next build`) |
 
@@ -70,7 +70,7 @@ Status lifecycle: `uploading → uploaded → processing | classifying → check
 ### `lib/` — shared logic
 
 - **`vision.mjs`** — the AI core.
-  - `MODEL` — the production model id (`claude-opus-4-7`).
+  - `CLASSIFY_MODEL` (`claude-sonnet-4-6`) / `COMPLIANCE_MODEL` (`claude-opus-4-7`) — the per-stage model ids. `MODEL_PAIR` (`"sonnet+opus"`) is recorded on each cache entry so a cached report is only reused when both stages still use the same models.
   - `mimeFromFilename(name)` / `toVisionBlock(bytes, mime)` — build PDF/image content blocks (PDFs sent natively as `document` blocks).
   - `buildClassifyParams(files, {model})` — assembles the classification `messages.create` params (system prompt + few-shot guides + `cache_control`).
   - `classifyAllDocuments(files, {model, onUsage})` — runs the Vision call, returns normalized per-document extractions.

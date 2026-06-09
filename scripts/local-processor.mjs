@@ -18,7 +18,8 @@ import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  classifyAllDocuments, runComplianceCheck, mimeFromFilename, MODEL,
+  classifyAllDocuments, runComplianceCheck, mimeFromFilename,
+  CLASSIFY_MODEL, COMPLIANCE_MODEL, MODEL_PAIR,
   buildClassifyParams, buildComplianceParams, normalizeClassification,
   parseJsonArray, parseJsonObject, messageText,
 } from '../lib/vision.mjs';
@@ -102,7 +103,7 @@ async function saveClassificationCache(dealSetHash, classificationResult, compli
       deal_set_hash: dealSetHash,
       classification_result: classificationResult,
       compliance_result: complianceResult,
-      model_used: MODEL,
+      model_used: MODEL_PAIR,
       created_at: new Date().toISOString(),
     });
     if (error) console.warn('  cache save failed:', error.message);
@@ -225,7 +226,7 @@ async function processDeal(dealId, orgId) {
 
     // Phase 1.2: reuse a prior identical result.
     const cached = await lookupClassificationCache(dealSetHash);
-    if (cached && cached.model_used === MODEL) {
+    if (cached && cached.model_used === MODEL_PAIR) {
       const cachedReport = { ...cached.compliance_result, from_cache: true };
       await writeCompletedDeal(dealId, cachedReport, cached.classification_result, dealSetHash);
       console.log(`[${ts()}] deal ${dealId} — DONE from cache (${cachedReport.overall_status})`);
@@ -245,14 +246,14 @@ async function processDeal(dealId, orgId) {
     console.log(`  downloaded ${downloaded.length} file(s) — classifying...`);
     let classifyUsage = null;
     const extractions = await classifyAllDocuments(filesForApi, { onUsage: u => { classifyUsage = u; } });
-    await logDealCost(dealId, 'classification', MODEL, classifyUsage);
+    await logDealCost(dealId, 'classification', CLASSIFY_MODEL, classifyUsage);
     console.log(`  classified ${extractions.length} document(s) — running compliance check...`);
 
     const perFile = buildPerFile(downloaded, extractions);
 
     let complianceUsage = null;
     const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; } });
-    await logDealCost(dealId, 'compliance', MODEL, complianceUsage);
+    await logDealCost(dealId, 'compliance', COMPLIANCE_MODEL, complianceUsage);
 
     await writeCompletedDeal(dealId, report, perFile, dealSetHash);
     console.log(`[${ts()}] deal ${dealId} — DONE (${report.overall_status})`);
@@ -282,7 +283,7 @@ async function runBatchPipeline(pending) {
       const prep = await prepareDealFiles(d.id, d.org_id);
 
       const cached = await lookupClassificationCache(prep.dealSetHash);
-      if (cached && cached.model_used === MODEL) {
+      if (cached && cached.model_used === MODEL_PAIR) {
         const report = { ...cached.compliance_result, from_cache: true };
         await writeCompletedDeal(d.id, report, cached.classification_result, prep.dealSetHash);
         console.log(`  deal ${d.id} — from cache`);
@@ -309,7 +310,7 @@ async function runBatchPipeline(pending) {
   // --- Stage 1: classification batch ---
   let classifyResults = {};
   try {
-    const requests = prepared.map(p => ({ custom_id: p.dealId, params: buildClassifyParams(p.filesForApi, { model: MODEL }) }));
+    const requests = prepared.map(p => ({ custom_id: p.dealId, params: buildClassifyParams(p.filesForApi, { model: CLASSIFY_MODEL }) }));
     const batchId = await submitBatch(anthropic, requests);
     await Promise.all(prepared.map(p => sb.from('deals').update({ batch_id: batchId }).eq('id', p.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
@@ -332,12 +333,12 @@ async function runBatchPipeline(pending) {
       const r = classifyResults[p.dealId];
       let extractions;
       if (r && r.type === 'succeeded') {
-        await logDealCost(p.dealId, 'classification', MODEL, r.message.usage, true);
+        await logDealCost(p.dealId, 'classification', CLASSIFY_MODEL, r.message.usage, true);
         extractions = normalizeClassification(parseJsonArray(messageText(r.message.content)), p.filesForApi);
       } else {
         let usage = null;
         extractions = await classifyAllDocuments(p.filesForApi, { onUsage: u => { usage = u; } });
-        await logDealCost(p.dealId, 'classification', MODEL, usage, false);
+        await logDealCost(p.dealId, 'classification', CLASSIFY_MODEL, usage, false);
       }
       await sb.from('deals').update({ status: 'checking', batch_stage: 'checking' }).eq('id', p.dealId);
       classified.push({ ...p, perFile: buildPerFile(p.downloaded, extractions) });
@@ -351,7 +352,7 @@ async function runBatchPipeline(pending) {
   // --- Stage 2: compliance batch ---
   let complianceResults = {};
   try {
-    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: MODEL }) }));
+    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: COMPLIANCE_MODEL }) }));
     const batchId = await submitBatch(anthropic, requests);
     await Promise.all(classified.map(c => sb.from('deals').update({ batch_id: batchId }).eq('id', c.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
@@ -373,12 +374,12 @@ async function runBatchPipeline(pending) {
       const r = complianceResults[c.dealId];
       let report;
       if (r && r.type === 'succeeded') {
-        await logDealCost(c.dealId, 'compliance', MODEL, r.message.usage, true);
+        await logDealCost(c.dealId, 'compliance', COMPLIANCE_MODEL, r.message.usage, true);
         report = parseJsonObject(messageText(r.message.content));
       } else {
         let usage = null;
         report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; } });
-        await logDealCost(c.dealId, 'compliance', MODEL, usage, false);
+        await logDealCost(c.dealId, 'compliance', COMPLIANCE_MODEL, usage, false);
       }
       await writeCompletedDeal(c.dealId, report, c.perFile, c.dealSetHash);
       console.log(`[${ts()}] deal ${c.dealId} — DONE (${report.overall_status})`);
