@@ -37,7 +37,6 @@ export default async function Dashboard() {
     else counts.pending += 1;
   }
 
-
   return (
     <div className="min-h-full flex flex-col bg-slate-50">
       <AppHeader isAdmin={isAdmin} />

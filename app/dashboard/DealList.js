@@ -111,6 +111,13 @@ function DealRow({ deal, onDeleted }) {
   );
 }
 
+const CHIPS = [
+  { key: 'all', label: 'All' },
+  { key: 'fail', label: 'Failing' },
+  { key: 'warn', label: 'Needs review' },
+  { key: 'pass', label: 'Passed' },
+];
+
 export default function DealList({ initialDeals }) {
   const [deals, setDeals] = useState(initialDeals);
   const [filter, setFilter] = useState('all'); // 'all' | 'fail' | 'warn' | 'pass'
@@ -121,7 +128,7 @@ export default function DealList({ initialDeals }) {
 
   if (deals.length === 0) {
     return (
-      <div className="rounded-lg ring-1 ring-slate-200 bg-white flex flex-col items-center justify-center py-20 text-center">
+      <div className="rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center py-20 text-center">
         <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center mb-4">
           <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -139,16 +146,10 @@ export default function DealList({ initialDeals }) {
     );
   }
 
-  const CHIPS = [
-    { key: 'all', label: 'All' },
-    { key: 'fail', label: 'Failing' },
-    { key: 'warn', label: 'Needs review' },
-    { key: 'pass', label: 'Passed' },
-  ];
-
   const visible = deals.filter((d) => {
     if (filter === 'all') return true;
     const k = dealKind(d);
+    // 'fail' catches compliance failures and processing errors (both red, both need attention)
     if (filter === 'fail') return k === 'fail' || k === 'failed';
     return k === filter;
   });
@@ -159,8 +160,10 @@ export default function DealList({ initialDeals }) {
         {CHIPS.map((c) => (
           <button
             key={c.key}
+            type="button"
             onClick={() => setFilter(c.key)}
-            className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+            aria-pressed={filter === c.key}
+            className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
               filter === c.key
                 ? 'bg-slate-900 text-white'
                 : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
