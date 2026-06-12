@@ -83,46 +83,48 @@ export default async function CostsPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         {cards.map(([label, value]) => (
-          <div key={label} className="rounded-lg ring-1 ring-slate-200 bg-white p-4">
+          <div key={label} className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-            <div className="mt-1 text-2xl font-semibold">{value}</div>
+            <div className="mt-1 text-2xl font-semibold tnum">{value}</div>
           </div>
         ))}
       </div>
 
       <h2 className="mt-8 text-sm font-semibold text-slate-700">Recent calls</h2>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-500">
-            <tr>
-              <th className="py-2 pr-4">When</th>
-              <th className="py-2 pr-4">Type</th>
-              <th className="py-2 pr-4">Model</th>
-              <th className="py-2 pr-4">In</th>
-              <th className="py-2 pr-4">Cache read</th>
-              <th className="py-2 pr-4">Out</th>
-              <th className="py-2 pr-4">Cost</th>
-              <th className="py-2 pr-4">Batch</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.slice(0, 50).map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
-                <td className="py-1 pr-4 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
-                <td className="py-1 pr-4">{r.call_type}</td>
-                <td className="py-1 pr-4">{r.model}</td>
-                <td className="py-1 pr-4">{r.input_tokens}</td>
-                <td className="py-1 pr-4">{r.cache_read_input_tokens}</td>
-                <td className="py-1 pr-4">{r.output_tokens}</td>
-                <td className="py-1 pr-4">{usd(Number(r.estimated_cost_usd))}</td>
-                <td className="py-1 pr-4">{r.from_batch ? 'yes' : 'no'}</td>
+      <div className="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-2 whitespace-nowrap">When</th>
+                <th className="px-4 py-2 whitespace-nowrap">Type</th>
+                <th className="px-4 py-2 whitespace-nowrap">Model</th>
+                <th className="px-4 py-2 whitespace-nowrap">In</th>
+                <th className="px-4 py-2 whitespace-nowrap">Cache read</th>
+                <th className="px-4 py-2 whitespace-nowrap">Out</th>
+                <th className="px-4 py-2 whitespace-nowrap">Cost</th>
+                <th className="px-4 py-2 whitespace-nowrap">Batch</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {list.length === 0 && (
-          <p className="mt-4 text-sm text-slate-500">No calls recorded in the last 7 days yet.</p>
-        )}
+            </thead>
+            <tbody>
+              {list.slice(0, 50).map((r) => (
+                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-2 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-2">{r.call_type}</td>
+                  <td className="px-4 py-2 font-mono">{r.model}</td>
+                  <td className="px-4 py-2 tnum">{r.input_tokens}</td>
+                  <td className="px-4 py-2 tnum">{r.cache_read_input_tokens}</td>
+                  <td className="px-4 py-2 tnum">{r.output_tokens}</td>
+                  <td className="px-4 py-2 font-mono tnum">{usd(Number(r.estimated_cost_usd))}</td>
+                  <td className="px-4 py-2">{r.from_batch ? 'yes' : 'no'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && (
+            <p className="px-4 py-4 text-sm text-slate-500">No calls recorded in the last 7 days yet.</p>
+          )}
+        </div>
       </div>
     </main>
   );
