@@ -135,7 +135,7 @@ export default function DealList({ initialDeals }) {
           </svg>
         </div>
         <p className="text-sm font-medium text-slate-900 mb-1">No deals yet</p>
-        <p className="text-sm text-slate-400 mb-5">Upload a deal jacket to run your first compliance check.</p>
+        <p className="text-sm text-slate-500 mb-5">Upload a deal jacket to run your first compliance check.</p>
         <Link
           href="/upload"
           className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 active:translate-y-px transition-all"

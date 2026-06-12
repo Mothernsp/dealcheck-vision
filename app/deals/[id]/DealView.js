@@ -96,7 +96,7 @@ export default function DealView({ initialDeal }) {
         {inProgress && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-4 mb-6 flex items-center gap-3">
             <div className="relative h-3 w-3 shrink-0">
-              <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-60" />
+              <span className="absolute inset-0 rounded-full bg-blue-400 motion-safe:animate-ping opacity-60" />
               <span className="relative block h-3 w-3 rounded-full bg-blue-600" />
             </div>
             <p className="text-sm text-blue-800">
