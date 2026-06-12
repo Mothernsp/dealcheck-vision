@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 
+// Unified top nav for the dashboard and admin sections. Renders section tabs
+// (Deals always; Rules + Costs for admins) with the active tab derived from the
+// path. `isAdmin` is resolved server-side and passed in.
+
 const ICONS = {
   '/dashboard': 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25A2.25 2.25 0 0 1 13.5 8.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z',
   '/admin/optimization': 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5',
@@ -47,7 +51,7 @@ export default function AppHeader({ isAdmin = false }) {
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <svg className={`h-4 w-4 ${isActive(t.href) ? 'text-blue-700' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <svg aria-hidden="true" className={`h-4 w-4 ${isActive(t.href) ? 'text-blue-700' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[t.href]} />
                 </svg>
                 {t.label}
@@ -59,9 +63,10 @@ export default function AppHeader({ isAdmin = false }) {
         <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/upload"
+            aria-label="New deal"
             className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 active:translate-y-px transition-all shadow-sm"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             <span className="hidden sm:inline">New deal</span>
