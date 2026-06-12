@@ -2,7 +2,7 @@ import { SignUp } from '@clerk/nextjs';
 
 export default function SignUpPage() {
   return (
-    <div className="flex flex-1 items-center justify-center p-8 bg-slate-50 min-h-screen">
+    <div className="flex flex-1 items-center justify-center p-8 bg-slate-50">
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-2">
           <div

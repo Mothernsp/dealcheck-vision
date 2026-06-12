@@ -31,6 +31,14 @@ h1, h2, h3, h4 {
   font-variant-numeric: tabular-nums;
 }
 
+/* Keyboard focus: a single visible ring on any focused control. Pointer
+   interactions don't trigger :focus-visible, so this stays out of the way. */
+:focus-visible {
+  outline: 2px solid #1d4ed8; /* blue-700 */
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* MOTION_INTENSITY 3: a single restrained entrance, used to bring report
    sections in on load. Collapses to instant under reduced-motion. */
 @media (prefers-reduced-motion: no-preference) {
