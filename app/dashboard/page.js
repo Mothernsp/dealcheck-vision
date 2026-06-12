@@ -37,12 +37,6 @@ export default async function Dashboard() {
     else counts.pending += 1;
   }
 
-  // Fail first, then cautious, then passed — the order the operator works in.
-  const tiles = [
-    { key: 'fail', label: 'Needs action', value: counts.fail, bg: 'bg-rose-50 ring-rose-200', text: 'text-rose-700' },
-    { key: 'warn', label: 'Cautious', value: counts.warn, bg: 'bg-amber-50 ring-amber-200', text: 'text-amber-800' },
-    { key: 'pass', label: 'Passed', value: counts.pass, bg: 'bg-emerald-50 ring-emerald-200', text: 'text-emerald-700' },
-  ];
 
   return (
     <div className="min-h-full flex flex-col bg-slate-50">
@@ -57,13 +51,23 @@ export default async function Dashboard() {
         </div>
 
         {deals.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            {tiles.map((t) => (
-              <div key={t.key} className={`rounded-lg ring-1 ${t.bg} px-5 py-4`}>
-                <div className={`text-3xl font-semibold tnum ${t.text}`}>{t.value}</div>
-                <div className={`text-xs font-medium mt-1 ${t.text} opacity-80`}>{t.label}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-4 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white mb-6">
+            <div className="px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Total</div>
+              <div className="text-2xl font-semibold tnum">{deals.length}</div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Needs action</div>
+              <div className="text-2xl font-semibold tnum text-rose-600">{counts.fail}</div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Cautious</div>
+              <div className="text-2xl font-semibold tnum text-amber-600">{counts.warn}</div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Passed</div>
+              <div className="text-2xl font-semibold tnum text-emerald-600">{counts.pass}</div>
+            </div>
           </div>
         )}
 

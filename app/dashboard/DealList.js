@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { dealMeta } from '@/lib/status';
+import { dealMeta, dealKind } from '@/lib/status';
 
 function initialsOf(name) {
   return (name || '?')
@@ -84,8 +84,9 @@ function DealRow({ deal, onDeleted }) {
           </div>
         ) : (
           <>
-            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${meta.chip}`}>
-              {meta.label}
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+              <span className={meta.text}>{meta.label}</span>
             </span>
             <span className="hidden sm:block text-xs text-slate-400 w-24 text-right tnum">
               {formatDate(deal.created_at)}
@@ -112,6 +113,7 @@ function DealRow({ deal, onDeleted }) {
 
 export default function DealList({ initialDeals }) {
   const [deals, setDeals] = useState(initialDeals);
+  const [filter, setFilter] = useState('all'); // 'all' | 'fail' | 'warn' | 'pass'
 
   function handleDeleted(id) {
     setDeals((prev) => prev.filter((d) => d.id !== id));
@@ -137,13 +139,49 @@ export default function DealList({ initialDeals }) {
     );
   }
 
+  const CHIPS = [
+    { key: 'all', label: 'All' },
+    { key: 'fail', label: 'Failing' },
+    { key: 'warn', label: 'Needs review' },
+    { key: 'pass', label: 'Passed' },
+  ];
+
+  const visible = deals.filter((d) => {
+    if (filter === 'all') return true;
+    const k = dealKind(d);
+    if (filter === 'fail') return k === 'fail' || k === 'failed';
+    return k === filter;
+  });
+
   return (
-    <div className="rounded-lg ring-1 ring-slate-200 bg-white overflow-hidden">
-      <ul className="divide-y divide-slate-100">
-        {deals.map((d) => (
-          <DealRow key={d.id} deal={d} onDeleted={handleDeleted} />
+    <div>
+      <div className="flex items-center gap-1.5 mb-3 text-xs">
+        {CHIPS.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setFilter(c.key)}
+            className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+              filter === c.key
+                ? 'bg-slate-900 text-white'
+                : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            {c.label}
+          </button>
         ))}
-      </ul>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        {visible.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-slate-400">No deals match this filter.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {visible.map((d) => (
+              <DealRow key={d.id} deal={d} onDeleted={handleDeleted} />
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
