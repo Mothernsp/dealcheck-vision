@@ -107,7 +107,7 @@ export default function OptimizationManager({ initialItems }) {
       </div>
 
       {/* New rule */}
-      <section className="rounded-lg ring-1 ring-slate-200 bg-white overflow-hidden">
+      <section className="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
           <h2 className={SECTION_LABEL}>New rule</h2>
         </div>
@@ -117,7 +117,7 @@ export default function OptimizationManager({ initialItems }) {
             onChange={(e) => setInstruction(e.target.value)}
             placeholder="e.g. Fail the deal if the odometer reading is missing on the Bill of Sale."
             rows={3}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -125,7 +125,7 @@ export default function OptimizationManager({ initialItems }) {
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 {PRIORITY_OPTIONS.map((p) => (
                   <option key={p.value} value={p.value}>
@@ -148,7 +148,7 @@ export default function OptimizationManager({ initialItems }) {
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
       {/* Rules list */}
-      <section className="mt-5 rounded-lg ring-1 ring-slate-200 bg-white overflow-hidden">
+      <section className="mt-5 rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
           <h2 className={SECTION_LABEL}>Rules</h2>
         </div>
@@ -184,7 +184,7 @@ export default function OptimizationManager({ initialItems }) {
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
                           rows={3}
-                          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600"
                         />
                       ) : (
                         <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{item.instruction}</p>
@@ -211,7 +211,7 @@ export default function OptimizationManager({ initialItems }) {
                               </button>
                               <button
                                 onClick={() => setEditingId(null)}
-                                className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                               >
                                 Cancel
                               </button>
@@ -221,7 +221,7 @@ export default function OptimizationManager({ initialItems }) {
                               <span className="text-xs text-slate-500">Delete this rule?</span>
                               <button
                                 onClick={() => setConfirmingId(null)}
-                                className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                               >
                                 Cancel
                               </button>
@@ -237,7 +237,7 @@ export default function OptimizationManager({ initialItems }) {
                               <select
                                 value={item.priority}
                                 onChange={(e) => patchItem(item.id, { priority: e.target.value })}
-                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                 aria-label="Priority"
                               >
                                 {PRIORITY_OPTIONS.map((p) => (
@@ -246,13 +246,13 @@ export default function OptimizationManager({ initialItems }) {
                               </select>
                               <button
                                 onClick={() => patchItem(item.id, { enabled: !item.enabled })}
-                                className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                               >
                                 {item.enabled ? 'Disable' : 'Enable'}
                               </button>
                               <button
                                 onClick={() => startEdit(item)}
-                                className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                               >
                                 Edit
                               </button>
