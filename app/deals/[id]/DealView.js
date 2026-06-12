@@ -50,15 +50,15 @@ export default function DealView({ initialDeal }) {
 
   // Fail first, then cautious, then passed.
   const summaryTiles = [
-    { n: failCount, label: 'Fail', icon: <FailIcon className="h-5 w-5" />, bg: 'bg-rose-50 ring-rose-200', text: 'text-rose-700' },
-    { n: warnCount, label: 'Warnings', icon: <WarnIcon className="h-5 w-5" />, bg: 'bg-amber-50 ring-amber-200', text: 'text-amber-800' },
-    { n: passCount, label: 'Pass', icon: <PassIcon className="h-5 w-5" />, bg: 'bg-emerald-50 ring-emerald-200', text: 'text-emerald-700' },
+    { n: failCount, label: 'Fail', icon: <FailIcon className="h-5 w-5" />, bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700' },
+    { n: warnCount, label: 'Warnings', icon: <WarnIcon className="h-5 w-5" />, bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
+    { n: passCount, label: 'Pass', icon: <PassIcon className="h-5 w-5" />, bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' },
   ];
 
   return (
     <div className="min-h-full flex flex-col bg-slate-50">
       <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 sm:px-8 h-14 flex items-center justify-between">
           <Link
             href="/dashboard"
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
@@ -87,14 +87,14 @@ export default function DealView({ initialDeal }) {
         </div>
 
         {deal.status === 'failed' && (
-          <div className="rounded-lg ring-1 ring-rose-200 bg-rose-50 px-4 py-3 mb-6 flex items-start gap-3 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 mb-6 flex items-start gap-3 text-sm text-rose-700">
             <FailIcon className="h-4 w-4 mt-0.5 shrink-0" />
             <span><span className="font-semibold">Processing failed. </span>{deal.error}</span>
           </div>
         )}
 
         {inProgress && (
-          <div className="rounded-lg ring-1 ring-blue-200 bg-blue-50 px-5 py-4 mb-6 flex items-center gap-3">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-4 mb-6 flex items-center gap-3">
             <div className="relative h-3 w-3 shrink-0">
               <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-60" />
               <span className="relative block h-3 w-3 rounded-full bg-blue-600" />
@@ -111,7 +111,7 @@ export default function DealView({ initialDeal }) {
             {checks.length > 0 && (
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 {summaryTiles.map((t) => (
-                  <div key={t.label} className={`rounded-lg ring-1 ${t.bg} px-5 py-4 flex items-center gap-3`}>
+                  <div key={t.label} className={`rounded-lg border ${t.bg} px-5 py-4 flex items-center gap-3`}>
                     {t.icon}
                     <div>
                       <div className={`text-xl font-semibold tnum ${t.text}`}>{t.n}</div>
@@ -122,13 +122,13 @@ export default function DealView({ initialDeal }) {
               </div>
             )}
 
-            <div className="rounded-lg ring-1 ring-slate-200 bg-white p-5">
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
               <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Summary</h2>
               <p className="text-sm text-slate-700 leading-relaxed max-w-[68ch]">{report.summary}</p>
             </div>
 
             {report.missing_documents?.length > 0 && (
-              <div className="rounded-lg ring-1 ring-amber-200 bg-amber-50 p-5">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
                 <h2 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                   <WarnIcon className="h-3.5 w-3.5" />
                   Missing documents
@@ -145,7 +145,7 @@ export default function DealView({ initialDeal }) {
             )}
 
             {checks.length > 0 && (
-              <div className="rounded-lg ring-1 ring-slate-200 bg-white overflow-hidden">
+              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-100">
                   <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Compliance checks</h2>
                 </div>
@@ -172,7 +172,7 @@ export default function DealView({ initialDeal }) {
             )}
 
             {report.math && (
-              <div className="rounded-lg ring-1 ring-slate-200 bg-white p-5">
+              <div className="rounded-lg border border-slate-200 bg-white p-5">
                 <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Math verification</h2>
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
                   {[
@@ -194,7 +194,7 @@ export default function DealView({ initialDeal }) {
           </div>
         )}
 
-        <div className={`rounded-lg ring-1 ring-slate-200 bg-white overflow-hidden ${report ? 'mt-5' : ''}`}>
+        <div className={`rounded-lg border border-slate-200 bg-white overflow-hidden ${report ? 'mt-5' : ''}`}>
           <div className="px-5 py-3 border-b border-slate-100">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
               Files {files.length > 0 && `(${files.length})`}
