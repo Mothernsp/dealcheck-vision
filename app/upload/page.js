@@ -59,7 +59,7 @@ export default function UploadPage() {
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-2xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="h-6 w-6 rounded-md bg-blue-700 flex items-center justify-center text-white text-xs font-bold">D</span>
+            <span className="h-6 w-6 rounded-md bg-slate-900 flex items-center justify-center text-white text-xs font-bold">D</span>
             <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors">
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
             </span>
@@ -117,7 +117,7 @@ export default function UploadPage() {
           </div>
 
           {files.length > 0 && (
-            <ul className="rounded-lg ring-1 ring-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+            <ul className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
               {files.map((f) => (
                 <li key={f.name} className="flex items-center gap-3 px-4 py-3">
                   <svg className="h-4 w-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -143,7 +143,7 @@ export default function UploadPage() {
           )}
 
           {error && (
-            <div className="rounded-lg ring-1 ring-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
             </div>
           )}
