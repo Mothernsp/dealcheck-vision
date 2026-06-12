@@ -13,7 +13,7 @@ export default function SignInPage() {
           </div>
           <span
             className="text-slate-900 font-semibold text-lg"
-            style={{ fontFamily: 'var(--font-lexend)' }}
+            style={{ fontFamily: 'var(--font-heading)' }}
           >
             DealCheck Vision
           </span>
