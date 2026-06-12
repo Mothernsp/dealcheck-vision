@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 
-// Unified top nav shared by the dashboard and the admin sections. Renders the
-// section tabs (Deals always; Optimization + Costs only for admins) so every
-// section is reachable from one consistent header. Active tab is derived from
-// the current path. `isAdmin` is resolved server-side and passed in.
+const ICONS = {
+  '/dashboard': 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25A2.25 2.25 0 0 1 13.5 8.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z',
+  '/admin/optimization': 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5',
+  '/admin/costs': 'M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+};
+
 export default function AppHeader({ isAdmin = false }) {
   const pathname = usePathname();
 
@@ -25,36 +27,39 @@ export default function AppHeader({ isAdmin = false }) {
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
-      <div className="max-w-5xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-6 min-w-0">
+      <div className="max-w-5xl mx-auto px-6 sm:px-8 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-5 min-w-0">
           <Link href="/dashboard" className="flex items-center gap-2.5 group shrink-0">
-            <span className="h-6 w-6 rounded-md bg-blue-700 flex items-center justify-center text-white text-xs font-bold">D</span>
-            <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors hidden sm:inline">
+            <span className="h-6 w-6 rounded-md bg-slate-900 flex items-center justify-center text-white text-[11px] font-bold">D</span>
+            <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors hidden sm:inline" style={{ fontFamily: 'var(--font-heading)' }}>
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
             </span>
           </Link>
 
-          <nav className="flex items-center gap-5 h-16">
+          <nav className="flex items-center gap-1 text-sm">
             {tabs.map((t) => (
               <Link
                 key={t.href}
                 href={t.href}
-                className={`inline-flex items-center h-16 -mb-px border-b-2 px-0.5 text-sm font-medium transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${
                   isActive(t.href)
-                    ? 'border-blue-700 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                    ? 'bg-slate-100 text-slate-900'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
+                <svg className={`h-4 w-4 ${isActive(t.href) ? 'text-blue-700' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[t.href]} />
+                </svg>
                 {t.label}
               </Link>
             ))}
           </nav>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/upload"
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-800 active:translate-y-px transition-all"
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 active:translate-y-px transition-all shadow-sm"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
