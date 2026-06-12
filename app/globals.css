@@ -10,14 +10,20 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-source-sans);   /* body */
+  --font-heading: var(--font-lexend);      /* headings */
+  --font-mono: var(--font-plex-mono);      /* VINs, amounts, filenames */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Headings use Lexend via the utility .font-heading or by element. */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading), var(--font-sans), system-ui, sans-serif;
 }
 
 /* Tabular numerics for the dossier: VINs, amounts and IDs line up in columns. */
@@ -29,14 +35,8 @@ body {
    sections in on load. Collapses to instant under reduced-motion. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
   }
   .animate-rise {
     animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
