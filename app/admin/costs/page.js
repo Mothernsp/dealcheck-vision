@@ -32,7 +32,7 @@ export default async function CostsPage() {
     return (
       <main className="mx-auto max-w-2xl p-8">
         <h1 className="text-xl font-semibold">Forbidden</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-slate-500">
           Admin access required. Add your Clerk user id to <code>ADMIN_USER_IDS</code>.
         </p>
       </main>
@@ -45,10 +45,10 @@ export default async function CostsPage() {
     return (
       <main className="mx-auto max-w-2xl p-8">
         <h1 className="text-xl font-semibold">Cost dashboard</h1>
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-rose-600">
           Could not load deal_costs: {error.message}
         </p>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-slate-500">
           Has the deal_costs migration been applied?
         </p>
       </main>
@@ -77,23 +77,23 @@ export default async function CostsPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <h1 className="text-xl font-semibold">Cost dashboard</h1>
-      <p className="mt-1 text-sm text-gray-500">Rolling 7 days. Costs are estimates (see lib/pricing.mjs).</p>
+    <main className="max-w-5xl w-full mx-auto px-6 sm:px-8 py-8">
+      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Cost dashboard</h1>
+      <p className="mt-1 text-sm text-slate-500">Rolling 7 days. Costs are estimates (see lib/pricing.mjs).</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         {cards.map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-gray-200 p-4">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+          <div key={label} className="rounded-lg ring-1 ring-slate-200 bg-white p-4">
+            <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
             <div className="mt-1 text-2xl font-semibold">{value}</div>
           </div>
         ))}
       </div>
 
-      <h2 className="mt-8 text-sm font-semibold text-gray-700">Recent calls</h2>
+      <h2 className="mt-8 text-sm font-semibold text-slate-700">Recent calls</h2>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="text-gray-500">
+          <thead className="text-slate-500">
             <tr>
               <th className="py-2 pr-4">When</th>
               <th className="py-2 pr-4">Type</th>
@@ -107,7 +107,7 @@ export default async function CostsPage() {
           </thead>
           <tbody>
             {list.slice(0, 50).map((r) => (
-              <tr key={r.id} className="border-t border-gray-100">
+              <tr key={r.id} className="border-t border-slate-100">
                 <td className="py-1 pr-4 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
                 <td className="py-1 pr-4">{r.call_type}</td>
                 <td className="py-1 pr-4">{r.model}</td>
@@ -121,7 +121,7 @@ export default async function CostsPage() {
           </tbody>
         </table>
         {list.length === 0 && (
-          <p className="mt-4 text-sm text-gray-500">No calls recorded in the last 7 days yet.</p>
+          <p className="mt-4 text-sm text-slate-500">No calls recorded in the last 7 days yet.</p>
         )}
       </div>
     </main>

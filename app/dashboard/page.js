@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
-import { UserButton } from '@clerk/nextjs';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sortDeals, dealKind } from '@/lib/status';
+import { isAdminUser } from '@/lib/admin';
+import AppHeader from '@/app/AppHeader';
 import DealList from './DealList';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function Dashboard() {
   const { userId, orgId: clerkOrgId } = await auth();
   const orgId = clerkOrgId || userId;
+  const isAdmin = isAdminUser(userId);
   const sb = supabaseAdmin();
   const { data } = await sb
     .from('deals')
@@ -45,28 +46,7 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-full flex flex-col bg-slate-50">
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="h-6 w-6 rounded-md bg-blue-700 flex items-center justify-center text-white text-xs font-bold">D</span>
-            <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors">
-              DealCheck <span className="text-slate-400 font-normal">Vision</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/upload"
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-800 active:translate-y-px transition-all"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              New deal
-            </Link>
-            <UserButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader isAdmin={isAdmin} />
 
       <main className="max-w-5xl w-full mx-auto px-6 sm:px-8 py-8">
         <div className="flex items-baseline justify-between mb-6">

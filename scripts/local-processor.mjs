@@ -23,6 +23,7 @@ import {
   buildClassifyParams, buildComplianceParams, normalizeClassification,
   parseJsonArray, parseJsonObject, messageText,
 } from '../lib/vision.mjs';
+import { getComplianceDirective } from '../lib/compliance-settings.mjs';
 import { submitBatch, pollBatchUntilDone, collectResults } from '../lib/batch.mjs';
 import { cleanScan, sharpnessScore, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
 import { estimateCostUsd } from '../lib/pricing.mjs';
@@ -252,7 +253,8 @@ async function processDeal(dealId, orgId) {
     const perFile = buildPerFile(downloaded, extractions);
 
     let complianceUsage = null;
-    const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; } });
+    const overrides = await getComplianceDirective(sb);
+    const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; }, overrides });
     await logDealCost(dealId, 'compliance', COMPLIANCE_MODEL, complianceUsage);
 
     await writeCompletedDeal(dealId, report, perFile, dealSetHash);
@@ -350,9 +352,11 @@ async function runBatchPipeline(pending) {
   if (!classified.length) return;
 
   // --- Stage 2: compliance batch ---
+  // Admin-authored directives, fetched once and applied to every deal in the batch.
+  const overrides = await getComplianceDirective(sb);
   let complianceResults = {};
   try {
-    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: COMPLIANCE_MODEL }) }));
+    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: COMPLIANCE_MODEL, overrides }) }));
     const batchId = await submitBatch(anthropic, requests);
     await Promise.all(classified.map(c => sb.from('deals').update({ batch_id: batchId }).eq('id', c.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
@@ -378,7 +382,7 @@ async function runBatchPipeline(pending) {
         report = parseJsonObject(messageText(r.message.content));
       } else {
         let usage = null;
-        report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; } });
+        report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; }, overrides });
         await logDealCost(c.dealId, 'compliance', COMPLIANCE_MODEL, usage, false);
       }
       await writeCompletedDeal(c.dealId, report, c.perFile, c.dealSetHash);
