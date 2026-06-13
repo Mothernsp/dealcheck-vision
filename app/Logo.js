@@ -5,7 +5,7 @@
 export default function Logo({ className = 'h-6 w-6 rounded-md', iconClassName = 'h-5 w-5' }) {
   return (
     <span
-      className={`bg-white border border-slate-200 flex items-center justify-center shrink-0 ${className}`}
+      className={`bg-white flex items-center justify-center shrink-0 ${className}`}
       aria-hidden="true"
     >
       <svg className={iconClassName} viewBox="0 0 24 24" fill="none">
