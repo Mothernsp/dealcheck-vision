@@ -1,6 +1,6 @@
 // DealCheck Vision brand mark: an eye (vision) cradling a checkmark (the deal
-// check). Rendered in brand colors on a white tile with a hairline border so it
-// reads on the app's light chrome. The standalone vector lives at /public/logo.svg.
+// check). Rendered in brand colors on a plain white tile, no border. The
+// standalone vector lives at /public/logo.svg.
 
 export default function Logo({ className = 'h-6 w-6 rounded-md', iconClassName = 'h-5 w-5' }) {
   return (

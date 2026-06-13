@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Logo from '../Logo';
 
 function formatSize(bytes) {
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
@@ -59,7 +60,7 @@ export default function UploadPage() {
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-2xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="h-6 w-6 rounded-md bg-slate-900 flex items-center justify-center text-white text-xs font-bold">D</span>
+            <Logo />
             <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors">
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
             </span>
