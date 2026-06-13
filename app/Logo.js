@@ -2,7 +2,7 @@
 // check). Rendered in brand colors on a plain white tile, no border. The
 // standalone vector lives at /public/logo.svg.
 
-export default function Logo({ className = 'h-6 w-6 rounded-md', iconClassName = 'h-5 w-5' }) {
+export default function Logo({ className = 'h-7 w-7 rounded-md', iconClassName = 'h-6 w-6' }) {
   return (
     <span
       className={`bg-white flex items-center justify-center shrink-0 ${className}`}

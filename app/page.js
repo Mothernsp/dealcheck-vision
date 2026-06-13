@@ -47,7 +47,7 @@ export default async function Home() {
     <div className="flex flex-col min-h-full bg-slate-50">
       <nav className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <span className="flex items-center gap-2.5">
+          <span className="flex items-center gap-2">
             <Logo />
             <span className="font-semibold tracking-tight text-slate-900">
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
