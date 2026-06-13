@@ -59,7 +59,7 @@ export default function UploadPage() {
     <div className="min-h-full flex flex-col bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-2xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-1.5 group">
             <Logo />
             <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors">
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
