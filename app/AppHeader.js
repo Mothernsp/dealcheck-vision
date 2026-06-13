@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
+import Logo from './Logo';
 
 // Unified top nav for the dashboard and admin sections. Renders section tabs
 // (Deals always; Rules + Costs for admins) with the active tab derived from the
@@ -34,7 +35,7 @@ export default function AppHeader({ isAdmin = false }) {
       <div className="max-w-5xl mx-auto px-6 sm:px-8 h-14 flex items-center justify-between gap-4">
         <div className="flex items-center gap-5 min-w-0">
           <Link href="/dashboard" className="flex items-center gap-2.5 group shrink-0">
-            <span className="h-6 w-6 rounded-md bg-slate-900 flex items-center justify-center text-white text-[11px] font-bold">D</span>
+            <Logo />
             <span className="font-semibold tracking-tight text-slate-900 group-hover:text-slate-600 transition-colors hidden sm:inline" style={{ fontFamily: 'var(--font-heading)' }}>
               DealCheck <span className="text-slate-400 font-normal">Vision</span>
             </span>

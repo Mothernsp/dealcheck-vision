@@ -1,16 +1,12 @@
 import { SignIn } from '@clerk/nextjs';
+import Logo from '../../Logo';
 
 export default function SignInPage() {
   return (
     <div className="flex flex-1 items-center justify-center p-8 bg-slate-50">
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-sm"
-            aria-hidden="true"
-          >
-            D
-          </div>
+          <Logo className="h-8 w-8 rounded-lg" iconClassName="h-5 w-5" />
           <span
             className="text-slate-900 font-semibold text-lg"
             style={{ fontFamily: 'var(--font-heading)' }}
