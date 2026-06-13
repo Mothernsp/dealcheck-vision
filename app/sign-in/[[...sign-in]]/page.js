@@ -6,7 +6,7 @@ export default function SignInPage() {
     <div className="flex flex-1 items-center justify-center p-8 bg-slate-50">
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-2">
-          <Logo className="h-8 w-8 rounded-lg" iconClassName="h-5 w-5" />
+          <Logo className="h-8 w-8 rounded-lg" iconClassName="h-6 w-6" />
           <span
             className="text-slate-900 font-semibold text-lg"
             style={{ fontFamily: 'var(--font-heading)' }}
