@@ -3,7 +3,7 @@
 // lockup export (bare mark sitting beside the wordmark). The standalone vector
 // lives at /public/logo.svg.
 
-export default function Logo({ className = 'h-7 w-7' }) {
+export default function Logo({ className = 'h-9 w-9' }) {
   return (
     <svg
       className={`shrink-0 ${className}`}
