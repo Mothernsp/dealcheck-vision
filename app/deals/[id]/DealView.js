@@ -13,10 +13,17 @@ const OVERALL_STAMP = {
 
 const OVERALL_LABEL = { pass: 'Pass', warnings: 'Warnings', fail: 'Fail' };
 
-const STAGE_TEXT = {
-  classifying: 'Reading and classifying documents…',
-  checking: 'Running compliance checks. Report ready in a few minutes.',
+// Pipeline stages shown while a deal processes. `pct` drives the progress bar so
+// it advances as the agent moves through the work; `label` describes the step.
+// Keep these in lifecycle order — uploaded → processing → classifying → checking.
+const STAGES = {
+  uploaded: { pct: 10, label: 'Queued — waiting for the processor to pick up this deal.' },
+  processing: { pct: 30, label: 'Downloading and preparing the documents…' },
+  classifying: { pct: 60, label: 'Reading and classifying each document…' },
+  checking: { pct: 85, label: 'Running cross-document compliance checks…' },
 };
+
+const DEFAULT_STAGE = { pct: 30, label: 'Reading, classifying, and checking the documents…' };
 
 export default function DealView({ initialDeal }) {
   const [deal, setDeal] = useState(initialDeal);
@@ -94,18 +101,31 @@ export default function DealView({ initialDeal }) {
           </div>
         )}
 
-        {inProgress && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-4 mb-6 flex items-center gap-3">
-            <div className="relative h-3 w-3 shrink-0">
-              <span className="absolute inset-0 rounded-full bg-blue-400 motion-safe:animate-ping opacity-60" />
-              <span className="relative block h-3 w-3 rounded-full bg-blue-600" />
+        {inProgress && (() => {
+          const stage = STAGES[deal.status] || DEFAULT_STAGE;
+          return (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="relative h-3 w-3 shrink-0">
+                  <span className="absolute inset-0 rounded-full bg-blue-400 motion-safe:animate-ping opacity-60" />
+                  <span className="relative block h-3 w-3 rounded-full bg-blue-600" />
+                </div>
+                <p className="flex-1 text-sm font-semibold text-blue-800">Running compliance audit</p>
+                <p className="text-xs text-blue-600 tnum shrink-0">Typically 3–5 minutes</p>
+              </div>
+
+              {/* Determinate progress bar — fills further as the agent advances. */}
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-blue-100">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-[width] duration-700 ease-out motion-safe:animate-pulse"
+                  style={{ width: `${stage.pct}%` }}
+                />
+              </div>
+
+              <p className="mt-2 text-sm text-blue-700">{stage.label}</p>
             </div>
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">Running compliance audit.</span>
-              <span className="text-blue-700"> {STAGE_TEXT[deal.status] || 'Reading, classifying, and checking. Usually 30 to 90 seconds.'}</span>
-            </p>
-          </div>
-        )}
+          );
+        })()}
 
         {report && (
           <div className="space-y-5 animate-rise">
