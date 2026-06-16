@@ -23,6 +23,7 @@ import { fileURLToPath } from 'url';
 import { classifyAllDocuments, mimeFromFilename } from '../lib/vision.mjs';
 import { cleanScan, isPreprocessableImage } from '../lib/preprocessing/clean-scan.mjs';
 import { PRICING, estimateCostUsd } from '../lib/pricing.mjs';
+import { DOLLAR_FIELDS, vinEq, moneyEq } from '../lib/normalize.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -41,28 +42,10 @@ const PREPROCESS = process.argv.includes('--preprocess');
 // The production baseline everything is compared against (first model by default).
 const BASELINE = MODELS[0];
 
-// Money fields we score for "dollar read accuracy".
-const DOLLAR_FIELDS = [
-  'sale_price', 'amount_financed', 'down_payment', 'monthly_payment',
-  'trade_in_value', 'gst_amount', 'pst_amount', 'lien_amount',
-];
+// DOLLAR_FIELDS, normVin, vinEq, moneyEq are imported from ../lib/normalize.mjs
+// so eval scoring and the production comparison engine share one definition.
 
 // ---- helpers ----
-
-function normVin(v) {
-  if (v == null) return null;
-  return String(v).toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
-
-function vinEq(a, b) {
-  const na = normVin(a), nb = normVin(b);
-  return na != null && nb != null && na === nb;
-}
-
-function moneyEq(a, b) {
-  if (a == null || b == null) return false;
-  return Math.abs(Number(a) - Number(b)) < 0.01;
-}
 
 function loadGoldenDeals() {
   if (!existsSync(GOLDEN_DIR)) return [];

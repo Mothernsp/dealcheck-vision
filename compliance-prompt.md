@@ -7,6 +7,14 @@ RULES:
 - Do not invent evidence. If a document was not uploaded, you cannot confirm it.
 - Keep detail short — one sentence max per check.
 
+CROSS-DOCUMENT COMPARISONS:
+The user message includes a `comparisons` array and a `consolidated` record computed deterministically in code. Each comparison already identifies WHICH number on WHICH document was compared against which — adjudicate these results; do NOT re-derive which numbers to compare.
+- status "pass" → the values agree; treat the related checklist item as satisfied ("pass").
+- status "fail" → a real discrepancy; mark the related item "fail" and cite the operands (document + value) from the comparison in the detail.
+- status "inconclusive" → a counterpart document was missing; mark the related item "warn".
+- When source scans are attached for a flagged comparison, read the value directly off the scan to decide whether a "fail" is a true mismatch or just an extraction misread — if the scan shows the values actually agree, downgrade to "pass" and note the likely extraction error.
+- Treat the `consolidated` values as the deal's authoritative VIN, odometer, and amounts.
+
 ---
 
 ## 1. Tax Compliance
@@ -24,7 +32,7 @@ RULES:
 - Out-of-province history disclosed on BOS
 - Lease return / taxi / police / government use disclosed if applicable
 - Total loss / flood / hail history disclosed if applicable
-- Odometer on Carfax consistent with KM photo and BOS
+- Odometer on Carfax consistent with KM photo and BOS (see the `odometer` comparison)
 
 ## 3. Trade-in & Lien
 - Trade-in Carfax present (if trade)
@@ -37,8 +45,9 @@ RULES:
 ## 4. Bill of Sale (BOS)
 - BOS present and signed by all buyers and dealer
 - All F&I products listed with individual itemized prices
-- Selling price on BOS matches bank/RIC contract
+- Selling price on BOS matches bank/RIC contract (see the `bos_price_vs_contract` comparison)
 - Vehicle details complete: VIN, year, make, model, km, colour
+- VIN is consistent across all documents (see the `vin` comparison)
 - No uninitialled alterations or white-out visible
 
 ## 5. Warranties & F&I Products

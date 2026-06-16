@@ -199,6 +199,15 @@ function buildPerFile(downloaded, extractions) {
   });
 }
 
+// Map a deal's downloaded files to the grounding-images shape that
+// buildComplianceParams expects (source_file → { bytes, mimeType }). Built from
+// the original downloaded bytes (not the preprocessed copies).
+function buildImagesMap(downloaded) {
+  return Object.fromEntries(
+    downloaded.map(f => [f.originalName, { bytes: f.bytes, mimeType: mimeFromFilename(f.originalName) }])
+  );
+}
+
 // Persist a finished deal: cache the result and mark it completed.
 async function writeCompletedDeal(dealId, report, perFile, dealSetHash) {
   await saveClassificationCache(dealSetHash, perFile, report);
@@ -254,7 +263,7 @@ async function processDeal(dealId, orgId) {
 
     let complianceUsage = null;
     const overrides = await getComplianceDirective(sb);
-    const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; }, overrides });
+    const report = await runComplianceCheck(perFile, { onUsage: u => { complianceUsage = u; }, overrides, images: buildImagesMap(downloaded) });
     await logDealCost(dealId, 'compliance', COMPLIANCE_MODEL, complianceUsage);
 
     await writeCompletedDeal(dealId, report, perFile, dealSetHash);
@@ -356,7 +365,7 @@ async function runBatchPipeline(pending) {
   const overrides = await getComplianceDirective(sb);
   let complianceResults = {};
   try {
-    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: COMPLIANCE_MODEL, overrides }) }));
+    const requests = classified.map(c => ({ custom_id: c.dealId, params: buildComplianceParams(c.perFile, { model: COMPLIANCE_MODEL, overrides, images: buildImagesMap(c.downloaded) }) }));
     const batchId = await submitBatch(anthropic, requests);
     await Promise.all(classified.map(c => sb.from('deals').update({ batch_id: batchId }).eq('id', c.dealId)));
     const poll = await pollBatchUntilDone(anthropic, batchId, { maxWaitMs });
@@ -382,7 +391,7 @@ async function runBatchPipeline(pending) {
         report = parseJsonObject(messageText(r.message.content));
       } else {
         let usage = null;
-        report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; }, overrides });
+        report = await runComplianceCheck(c.perFile, { onUsage: u => { usage = u; }, overrides, images: buildImagesMap(c.downloaded) });
         await logDealCost(c.dealId, 'compliance', COMPLIANCE_MODEL, usage, false);
       }
       await writeCompletedDeal(c.dealId, report, c.perFile, c.dealSetHash);
