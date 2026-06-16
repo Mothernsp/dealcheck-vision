@@ -20,6 +20,7 @@ const STAGE_TEXT = {
 
 export default function DealView({ initialDeal }) {
   const [deal, setDeal] = useState(initialDeal);
+  const [docsOpen, setDocsOpen] = useState(false);
   const inProgress = ['uploaded', 'processing', 'classifying', 'checking'].includes(deal.status);
 
   useEffect(() => {
@@ -195,17 +196,31 @@ export default function DealView({ initialDeal }) {
         )}
 
         <div className={`rounded-lg border border-slate-200 bg-white overflow-hidden ${report ? 'mt-5' : ''}`}>
-          <div className="px-5 py-3 border-b border-slate-100">
+          <button
+            type="button"
+            onClick={() => setDocsOpen((v) => !v)}
+            aria-expanded={docsOpen}
+            className="w-full flex items-center gap-2 px-5 py-3 text-left hover:bg-slate-50 transition-colors"
+          >
+            <svg
+              className={`h-4 w-4 text-slate-400 transition-transform ${docsOpen ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              Files {files.length > 0 && `(${files.length})`}
+              Documents Detected {files.length > 0 && `(${files.length})`}
             </h2>
-          </div>
-          {files.length === 0 ? (
-            <div className="px-5 py-4 text-sm text-slate-400">
+          </button>
+          {!docsOpen ? null : files.length === 0 ? (
+            <div className="px-5 py-4 text-sm text-slate-400 border-t border-slate-100">
               {inProgress ? 'Indexing files…' : 'No files attached.'}
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 border-t border-slate-100">
               {files.map((f) => (
                 <li key={f.storage_path} className="flex items-center gap-3 px-5 py-3">
                   <svg className="h-4 w-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
