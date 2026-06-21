@@ -1,17 +1,22 @@
 import { after } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { processDeal } from '@/lib/process-deal';
+import { isUuid } from '@/lib/validate';
+import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
+import { requireOrg } from '@/lib/auth-context';
 
 export const maxDuration = 300;
 
 export async function POST(request) {
-  const { userId, orgId: clerkOrgId } = await auth();
-  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId, orgId, error: authError } = await requireOrg();
+  if (authError) return authError;
 
-  const orgId = clerkOrgId || userId;
-  const { dealId } = await request.json();
-  if (!dealId) return Response.json({ error: 'dealId required' }, { status: 400 });
+  // Each check kicks off the Claude pipeline; throttle per user.
+  const limit = rateLimit(`check:${userId}`, { limit: 20, windowMs: 60_000 });
+  if (!limit.ok) return tooManyRequests(limit);
+
+  const { dealId } = await request.json().catch(() => ({}));
+  if (!isUuid(dealId)) return Response.json({ error: 'Valid dealId required' }, { status: 400 });
 
   const sb = supabaseAdmin();
   const { data: deal, error } = await sb

@@ -1,89 +1,74 @@
 import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin, BUCKET } from '@/lib/supabase';
+import { isAdminUser } from '@/lib/admin';
+import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
 import Anthropic from '@anthropic-ai/sdk';
 
 export const maxDuration = 30;
 
-export async function GET() {
+// Admin-only diagnostics.
+//
+// This endpoint previously leaked backend recon to ANY signed-in user: the
+// Anthropic key prefix, env var names, which AWS creds were set, Supabase row
+// counts / schema columns / bucket name, plus a billed Claude call on every
+// request (loopable to drain budget). It is now (1) admin-gated, (2) reduced to
+// boolean connectivity/presence signals — never secret material, env names, or
+// raw error strings — and (3) the billed round-trip is opt-in via ?live=1 and
+// rate-limited.
+export async function GET(request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!isAdminUser(userId)) return Response.json({ error: 'Forbidden' }, { status: 403 });
+
+  const limit = rateLimit(`test:${userId}`, { limit: 10, windowMs: 60_000 });
+  if (!limit.ok) return tooManyRequests(limit);
+
+  const { searchParams } = new URL(request.url);
+  const live = searchParams.get('live') === '1';
 
   const results = {};
 
-  // ── 1. Supabase connection ────────────────────────────────────────────────
+  // Supabase connectivity — boolean only.
   try {
     const sb = supabaseAdmin();
-    const { data, error } = await sb.from('deals').select('id').limit(1);
-    if (error) throw error;
-    results.supabase = { ok: true, note: `connected, ${data.length} row(s) returned` };
-  } catch (err) {
-    results.supabase = { ok: false, error: err.message };
+    const { error } = await sb.from('deals').select('id').limit(1);
+    results.supabase = { ok: !error };
+  } catch {
+    results.supabase = { ok: false };
   }
 
-  // ── 2. Supabase schema — check which columns exist on deals ───────────────
+  // Storage connectivity — boolean only.
   try {
     const sb = supabaseAdmin();
-    const probeColumns = ['files', 'error', 'updated_at'];
-    const colResults = {};
-    for (const col of probeColumns) {
-      const { error: colErr } = await sb
-        .from('deals')
-        .select(col)
-        .limit(0);
-      colResults[col] = colErr
-        ? { exists: false, detail: colErr.message }
-        : { exists: true };
-    }
-    results.schema = { ok: true, columns: colResults };
-  } catch (err) {
-    results.schema = { ok: false, error: err.message };
+    const { error } = await sb.storage.from(BUCKET).list('', { limit: 1 });
+    results.storage = { ok: !error };
+  } catch {
+    results.storage = { ok: false };
   }
 
-  // ── 3. Supabase storage — list bucket ─────────────────────────────────────
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.storage.from(BUCKET).list('', { limit: 1 });
-    if (error) throw error;
-    results.storage = { ok: true, bucket: BUCKET };
-  } catch (err) {
-    results.storage = { ok: false, error: err.message };
-  }
-
-  // ── 4. Anthropic API ──────────────────────────────────────────────────────
-  try {
-    const key = process.env.ANTHROPIC_API_KEY;
-    // Search for any env key containing ANTHRO (catches typos / encoding variants)
-    const anthropicLike = Object.keys(process.env).filter((k) =>
-      k.toUpperCase().includes('ANTHRO')
-    );
-    results.anthropic_env = {
-      key_present: !!key,
-      key_prefix: key ? key.slice(0, 10) + '...' : null,
-      matching_env_keys: anthropicLike,
-    };
-
-    const client = new Anthropic();
-    const msg = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 10,
-      messages: [{ role: 'user', content: 'Reply with just: ok' }],
-    });
-    results.anthropic = {
-      ok: true,
-      response: msg.content?.[0]?.text || '(empty)',
-    };
-  } catch (err) {
-    results.anthropic = { ok: false, error: err.message };
-  }
-
-  // ── 5. AWS env vars present ───────────────────────────────────────────────
-  results.aws_env = {
-    AWS_REGION: !!process.env.AWS_REGION,
-    AWS_ACCESS_KEY_ID: !!process.env.AWS_ACCESS_KEY_ID,
-    AWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
-    AWS_S3_BUCKET: !!process.env.AWS_S3_BUCKET,
+  // Required config present — booleans only, never values/prefixes/names.
+  results.config = {
+    anthropic_key: Boolean(process.env.ANTHROPIC_API_KEY),
+    supabase_service_key: Boolean(process.env.SUPABASE_SERVICE_KEY),
+    clerk_secret: Boolean(process.env.CLERK_SECRET_KEY),
   };
 
-  const allOk = results.supabase.ok && results.anthropic.ok && results.storage.ok;
+  // Billed Anthropic round-trip only when an admin explicitly opts in.
+  if (live) {
+    try {
+      const client = new Anthropic();
+      const msg = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Reply with just: ok' }],
+      });
+      results.anthropic = { ok: Boolean(msg.content?.[0]?.text) };
+    } catch {
+      results.anthropic = { ok: false };
+    }
+  }
+
+  const allOk =
+    results.supabase.ok && results.storage.ok && (!live || results.anthropic?.ok);
   return Response.json({ allOk, results }, { status: allOk ? 200 : 500 });
 }

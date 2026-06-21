@@ -76,11 +76,19 @@ const inFlight = new Set();
 // or a transient DB failure degrades to "no caching" rather than breaking the
 // pipeline. Run supabase/migrations/*_classification_cache.sql to enable it.
 
-function computeDealSetHash(buffers) {
+function computeDealSetHash(buffers, orgId) {
   const fileHashes = buffers
     .map(b => createHash('sha256').update(b).digest('hex'))
     .sort(); // order-independent: same files in any order → same hash
-  return createHash('sha256').update(fileHashes.join('\n')).digest('hex');
+  // Scope the hash to the org. The cache is keyed by document CONTENT, so
+  // without this two different dealerships uploading byte-identical files would
+  // share a cache entry — and one org's compliance verdict (shaped by THEIR
+  // admin directives and custom check items) would be served to the other.
+  // Mixing orgId in guarantees a cache entry can never cross a tenant boundary;
+  // same-org re-uploads still hit the cache and save the Opus calls.
+  return createHash('sha256')
+    .update(`${orgId}\n${fileHashes.join('\n')}`)
+    .digest('hex');
 }
 
 async function lookupClassificationCache(dealSetHash) {
@@ -159,7 +167,7 @@ async function prepareDealFiles(dealId, orgId) {
     })
   );
 
-  const dealSetHash = computeDealSetHash(downloaded.map(f => f.bytes));
+  const dealSetHash = computeDealSetHash(downloaded.map(f => f.bytes), orgId);
 
   let filesForApi = downloaded.map(f => ({ bytes: f.bytes, filename: f.originalName }));
   let illegible = [];

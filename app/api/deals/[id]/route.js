@@ -1,11 +1,10 @@
-import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin, BUCKET } from '@/lib/supabase';
+import { requireOrg } from '@/lib/auth-context';
 
 export async function GET(_request, { params }) {
-  const { userId, orgId: clerkOrgId } = await auth();
-  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const { orgId, error: authError } = await requireOrg();
+  if (authError) return authError;
 
-  const orgId = clerkOrgId || userId;
   const { id } = await params;
 
   const sb = supabaseAdmin();
@@ -18,7 +17,7 @@ export async function GET(_request, { params }) {
 
   if (dbError) {
     console.error('[api/deals] supabase error:', dbError.message);
-    return Response.json({ error: dbError.message }, { status: 500 });
+    return Response.json({ error: 'Failed to load deal' }, { status: 500 });
   }
   if (!deal) return Response.json({ error: 'Deal not found' }, { status: 404 });
 
@@ -28,10 +27,9 @@ export async function GET(_request, { params }) {
 // Hard-delete a deal: storage files, cost rows, then the row itself.
 // Scoped to the caller's org so a deal can never be deleted across tenants.
 export async function DELETE(_request, { params }) {
-  const { userId, orgId: clerkOrgId } = await auth();
-  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const { orgId, error: authError } = await requireOrg();
+  if (authError) return authError;
 
-  const orgId = clerkOrgId || userId;
   const { id } = await params;
 
   const sb = supabaseAdmin();
@@ -76,7 +74,7 @@ export async function DELETE(_request, { params }) {
 
   if (delErr) {
     console.error('[api/deals DELETE] supabase error:', delErr.message);
-    return Response.json({ error: delErr.message }, { status: 500 });
+    return Response.json({ error: 'Failed to delete deal' }, { status: 500 });
   }
 
   return Response.json({ ok: true });

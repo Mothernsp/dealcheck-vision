@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isAdminUser } from '@/lib/admin';
+import { isHexHash } from '@/lib/validate';
 
 // Admin-only: clear a cached deal-set result so the next upload of that file set
 // re-runs the Opus pipeline. Use this if a cache entry holds bad output.
@@ -14,8 +15,8 @@ export async function DELETE(request) {
 
   const { searchParams } = new URL(request.url);
   const dealSetHash = searchParams.get('deal_set_hash');
-  if (!dealSetHash) {
-    return Response.json({ error: 'deal_set_hash query param required' }, { status: 400 });
+  if (!isHexHash(dealSetHash)) {
+    return Response.json({ error: 'valid deal_set_hash query param required' }, { status: 400 });
   }
 
   const sb = supabaseAdmin();

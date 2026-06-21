@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireOrg } from '@/lib/auth-context';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const { userId, orgId: clerkOrgId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  const orgId = clerkOrgId || userId;
+  const { orgId, error: authError } = await requireOrg();
+  if (authError) return authError;
 
   const sb = supabaseAdmin();
   const { data, error } = await sb
@@ -16,7 +15,10 @@ export async function GET() {
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('[api/deals] supabase error:', error.message);
+    return NextResponse.json({ error: 'Failed to load deals' }, { status: 500 });
+  }
 
   const deals = data.map((d) => ({
     id: d.id,
