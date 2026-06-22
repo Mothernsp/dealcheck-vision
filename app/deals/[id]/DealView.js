@@ -132,9 +132,9 @@ export default function DealView({ initialDeal }) {
             {checks.length > 0 && (
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 {summaryTiles.map((t) => (
-                  <div key={t.label} className={`rounded-lg border ${t.bg} px-5 py-4 flex items-center gap-3`}>
-                    {t.icon}
-                    <div>
+                  <div key={t.label} className={`rounded-lg border ${t.bg} px-3 py-3 sm:px-5 sm:py-4 flex items-center gap-2.5 sm:gap-3`}>
+                    <span className="shrink-0">{t.icon}</span>
+                    <div className="min-w-0">
                       <div className={`text-xl font-semibold tnum ${t.text}`}>{t.n}</div>
                       <div className={`text-xs ${t.text} opacity-80`}>{t.label}</div>
                     </div>

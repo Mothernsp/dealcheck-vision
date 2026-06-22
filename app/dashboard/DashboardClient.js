@@ -135,21 +135,22 @@ export default function DashboardClient({ initialDeals }) {
         </span>
       </div>
 
-      {/* Summary counts (reflect the selected range) */}
-      <div className="grid grid-cols-4 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white mb-6">
-        <div className="px-4 py-3">
+      {/* Summary counts (reflect the selected range). Two columns on phones,
+          four from `sm` up — bordered cards so they read cleanly when wrapped. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-500 mb-1">Total</div>
           <div className="text-2xl font-semibold tnum">{inRange.length}</div>
         </div>
-        <div className="px-4 py-3">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-500 mb-1">Needs action</div>
           <div className="text-2xl font-semibold tnum text-rose-600">{counts.fail}</div>
         </div>
-        <div className="px-4 py-3">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-500 mb-1">Cautious</div>
           <div className="text-2xl font-semibold tnum text-amber-600">{counts.warn}</div>
         </div>
-        <div className="px-4 py-3">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <div className="text-xs text-slate-500 mb-1">Passed</div>
           <div className="text-2xl font-semibold tnum text-emerald-600">{counts.pass}</div>
         </div>

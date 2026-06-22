@@ -46,9 +46,9 @@ export default async function Home() {
   return (
     <div className="flex flex-col min-h-full bg-slate-50">
       <nav className="border-b border-slate-200 bg-white">
-        <div className="max-w-6xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between gap-3">
+          <Logo className="min-w-0" wordmarkClassName="truncate" />
+          <div className="flex items-center gap-3 shrink-0">
             {userId ? (
               <Link
                 href="/dashboard"

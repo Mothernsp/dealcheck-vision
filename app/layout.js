@@ -25,6 +25,13 @@ export const metadata = {
   description: "Upload a deal jacket and get an itemised pass, warn and fail compliance report against BC Motor Dealer Act requirements.",
 };
 
+// Explicit mobile viewport so the app scales to the device width (rather than a
+// zoomed-out desktop width) and stays usable on phones.
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>

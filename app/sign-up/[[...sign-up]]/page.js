@@ -18,7 +18,7 @@ export default async function SignUpPage({ searchParams }) {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8 bg-slate-50">
+    <div className="flex flex-1 items-center justify-center p-4 sm:p-8 bg-slate-50">
       <div className="flex flex-col items-center gap-6">
         <Logo />
         <SignUp

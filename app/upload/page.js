@@ -59,7 +59,7 @@ export default function UploadPage() {
     <div className="min-h-full flex flex-col bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-2xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="group">
+          <Link href="/" className="group flex items-center">
             <Logo wordmarkClassName="group-hover:text-slate-600 transition-colors" />
           </Link>
           <Link
